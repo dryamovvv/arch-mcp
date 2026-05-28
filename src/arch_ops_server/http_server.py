@@ -10,12 +10,12 @@ import asyncio
 import json
 import logging
 import os
+import traceback
 from typing import Any
 
 try:
     from starlette.applications import Starlette
     from starlette.routing import Route
-    from starlette.requests import Request
     from starlette.middleware.cors import CORSMiddleware
     import uvicorn
     STARLETTE_AVAILABLE = True
@@ -70,8 +70,7 @@ async def _handle_direct_mcp_request(request_data: dict) -> dict:
     Returns:
         JSON-RPC response data
     """
-    import json
-    
+
     try:
         method = request_data.get("method", "")
         params = request_data.get("params", {})
@@ -498,16 +497,6 @@ async def handle_sse_raw(scope: dict, receive: Any, send: Any) -> None:
         raise
 
 
-async def handle_sse(request: Request) -> None:
-    """
-    Starlette request handler wrapper for SSE endpoint.
-
-    Args:
-        request: Starlette Request object
-    """
-    await handle_sse_raw(request.scope, request.receive, request._send)
-
-
 async def handle_messages_raw(scope: dict, receive: Any, send: Any) -> None:
     """
     Raw ASGI handler for POST requests to /messages endpoint for SSE transport.
@@ -533,25 +522,6 @@ async def handle_messages_raw(scope: dict, receive: Any, send: Any) -> None:
         await sse.handle_post_message(scope, receive, send)
     except Exception as e:
         logger.error(f"Message handling error: {e}", exc_info=True)
-        await send({
-            "type": "http.response.start",
-            "status": 500,
-            "headers": [[b"content-type", b"application/json"]],
-        })
-        await send({
-            "type": "http.response.body",
-            "body": f'{{"jsonrpc": "2.0", "error": {{"code": -32603, "message": "Internal error: {str(e)}"}}, "id": null}}'.encode(),
-        })
-
-
-async def handle_messages(request: Request) -> None:
-    """
-    Starlette request handler wrapper for messages endpoint.
-
-    Args:
-        request: Starlette Request object
-    """
-    await handle_messages_raw(request.scope, request.receive, request._send)
 
 
 async def handle_mcp_raw(scope: dict, receive: Any, send: Any) -> None:
@@ -600,7 +570,6 @@ async def handle_mcp_raw(scope: dict, receive: Any, send: Any) -> None:
                             more_body = message.get("more_body", False)
                     
                     # Parse JSON-RPC request
-                    import json
                     request_data = json.loads(body.decode("utf-8"))
                     logger.info(f"Processing MCP request: {request_data.get('method', 'unknown')}")
                     
@@ -619,7 +588,6 @@ async def handle_mcp_raw(scope: dict, receive: Any, send: Any) -> None:
                     return
                 except json.JSONDecodeError as e:
                     logger.error(f"JSON decode error: {e}", exc_info=True)
-                    import json
                     await send({
                         "type": "http.response.start",
                         "status": 400,
@@ -636,9 +604,7 @@ async def handle_mcp_raw(scope: dict, receive: Any, send: Any) -> None:
                     return
                 except Exception as e:
                     logger.error(f"Error handling direct POST request: {e}", exc_info=True)
-                    import traceback
                     logger.error(traceback.format_exc())
-                    import json
                     await send({
                         "type": "http.response.start",
                         "status": 500,
@@ -689,9 +655,7 @@ async def handle_mcp_raw(scope: dict, receive: Any, send: Any) -> None:
     except Exception as e:
         # Catch any unhandled exceptions at the top level
         logger.error(f"Unhandled exception in handle_mcp_raw: {e}", exc_info=True)
-        import traceback
         logger.error(traceback.format_exc())
-        import json
         try:
             await send({
                 "type": "http.response.start",
@@ -708,16 +672,6 @@ async def handle_mcp_raw(scope: dict, receive: Any, send: Any) -> None:
             })
         except Exception as send_error:
             logger.error(f"Failed to send error response: {send_error}", exc_info=True)
-
-
-async def handle_mcp(request: Request) -> None:
-    """
-    Starlette request handler wrapper for /mcp endpoint.
-    
-    Args:
-        request: Starlette Request object
-    """
-    await handle_mcp_raw(request.scope, request.receive, request._send)
 
 
 def create_app() -> Any:
@@ -745,9 +699,9 @@ def create_app() -> Any:
     # - /mcp: Required by Smithery (handles GET/POST/DELETE for streamable HTTP)
     # - /sse and /messages: Alternative endpoints for other clients
     routes = [
-        Route("/mcp", endpoint=handle_mcp, methods=["GET", "POST", "DELETE"]),
-        Route("/sse", endpoint=handle_sse),
-        Route("/messages", endpoint=handle_messages, methods=["POST"]),
+        Route("/mcp", endpoint=handle_mcp_raw, methods=["GET", "POST", "DELETE"]),
+        Route("/sse", endpoint=handle_sse_raw),
+        Route("/messages", endpoint=handle_messages_raw, methods=["POST"]),
     ]
 
     # Create app
