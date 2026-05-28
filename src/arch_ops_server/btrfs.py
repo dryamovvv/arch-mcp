@@ -666,7 +666,7 @@ async def get_snapper_configs() -> Dict[str, Any]:
         line_stripped = line.strip()
         if not line_stripped:
             continue
-        if line_stripped.startswith("Config") or line_stripped.startswith("-"):
+        if line_stripped.startswith("Config") or line_stripped.startswith("-") or line_stripped.startswith("\u2500"):
             found_header = True
             continue
         if not found_header:
