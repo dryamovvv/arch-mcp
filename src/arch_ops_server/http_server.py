@@ -15,7 +15,6 @@ from typing import Any
 try:
     from starlette.applications import Starlette
     from starlette.routing import Route
-    from starlette.responses import Response
     from starlette.requests import Request
     from starlette.middleware.cors import CORSMiddleware
     import uvicorn
@@ -767,22 +766,26 @@ def create_app() -> Any:
     # Auth middleware (Bearer token via ARCH_OPS_SERVER_API_KEY env var)
     _api_key = os.environ.get("ARCH_OPS_SERVER_API_KEY")
     if _api_key:
-        @app.middleware("http")
-        async def auth_middleware(request: Request, call_next):
-            if request.method == "OPTIONS":
-                return await call_next(request)
-            auth = request.headers.get("Authorization", "")
+        _inner = app
+        async def auth_app(scope, receive, send):
+            if scope["type"] != "http" or scope.get("method") == "OPTIONS":
+                return await _inner(scope, receive, send)
+            headers = dict(scope.get("headers", []))
+            auth = headers.get(b"authorization", b"").decode()
             if not auth.startswith("Bearer ") or auth.removeprefix("Bearer ") != _api_key:
-                return Response(
-                    content=json.dumps({
-                        "jsonrpc": "2.0",
-                        "error": {"code": -32001, "message": "Unauthorized"},
-                        "id": None
-                    }),
-                    status_code=401,
-                    media_type="application/json",
-                )
-            return await call_next(request)
+                body = json.dumps({
+                    "jsonrpc": "2.0",
+                    "error": {"code": -32001, "message": "Unauthorized"},
+                    "id": None
+                }).encode()
+                await send({
+                    "type": "http.response.start",
+                    "status": 401,
+                    "headers": [[b"content-type", b"application/json"]],
+                })
+                return await send({"type": "http.response.body", "body": body})
+            await _inner(scope, receive, send)
+        app = auth_app
 
     logger.info("MCP HTTP Server initialized with SSE transport")
     logger.info("Endpoints: GET/POST/DELETE /mcp (Smithery), GET /sse, POST /messages")
