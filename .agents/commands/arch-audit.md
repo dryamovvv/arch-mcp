@@ -4,4 +4,4 @@ agent: general
 subtask: true
 ---
 
-Load the `arch-audit` skill and perform a comprehensive system audit of the remote RPi5 using the `arch-linux` MCP. Run ALL tools in parallel where possible, compile results into a structured table report. Save relusts in `arch-audit-results.md` and provide a summary of critical issues found.
+Load the `arch-audit` skill and perform a comprehensive system audit of the remote RPi5 using the `arch-linux` MCP. Run ALL tools in parallel where possible, compile results into a structured table report. Save results in `arch-audit-results.md` and provide a summary of critical issues found.
