@@ -524,6 +524,19 @@ async def handle_messages_raw(scope: dict, receive: Any, send: Any) -> None:
         logger.error(f"Message handling error: {e}", exc_info=True)
 
 
+class _ASGIWrapper:
+    """Wrap an ASGI handler so Starlette Route treats it as ASGI, not request handler.
+
+    Starlette's Route treats plain functions as request handlers (func(request) -> response).
+    Wrapping in this class makes Route recognize it as a raw ASGI app (scope, receive, send).
+    """
+    def __init__(self, func: Any) -> None:
+        self.func = func
+
+    async def __call__(self, scope: dict, receive: Any, send: Any) -> None:
+        await self.func(scope, receive, send)
+
+
 async def handle_mcp_raw(scope: dict, receive: Any, send: Any) -> None:
     """
     Raw ASGI handler for /mcp endpoint (Smithery requirement).
@@ -699,9 +712,9 @@ def create_app() -> Any:
     # - /mcp: Required by Smithery (handles GET/POST/DELETE for streamable HTTP)
     # - /sse and /messages: Alternative endpoints for other clients
     routes = [
-        Route("/mcp", endpoint=handle_mcp_raw, methods=["GET", "POST", "DELETE"]),
-        Route("/sse", endpoint=handle_sse_raw),
-        Route("/messages", endpoint=handle_messages_raw, methods=["POST"]),
+        Route("/mcp", endpoint=_ASGIWrapper(handle_mcp_raw), methods=["GET", "POST", "DELETE"]),
+        Route("/sse", endpoint=_ASGIWrapper(handle_sse_raw)),
+        Route("/messages", endpoint=_ASGIWrapper(handle_messages_raw), methods=["POST"]),
     ]
 
     # Create app
