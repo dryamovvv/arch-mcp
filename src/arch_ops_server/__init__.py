@@ -71,6 +71,7 @@ from .config import (
     check_ignored_packages,
     get_parallel_downloads_setting,
 )
+from .journal import manage_logs
 from .utils import IS_ARCH, run_command
 
 # Import server from the server module
@@ -170,6 +171,8 @@ __all__ = [
     "find_failed_transactions",
     "get_database_sync_history",
     "query_package_history",
+    # Journal
+    "manage_logs",
     # Mirrors
     "list_active_mirrors",
     "test_mirror_speed",

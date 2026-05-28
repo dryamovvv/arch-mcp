@@ -69,6 +69,8 @@ from . import (
     analyze_makepkg_conf,
     # System health check
     run_system_health_check,
+    # Journal functions
+    manage_logs,
     # Utils
     IS_ARCH,
     run_command,
@@ -941,6 +943,49 @@ async def list_tools() -> list[Tool]:
             annotations=ToolAnnotations(readOnlyHint=True)
         ),
 
+        # Journal Tools
+        Tool(
+            name="manage_logs",
+            description="[MAINTENANCE] Retrieve and filter systemd journal logs. Supports filtering by unit (e.g. 'sshd'), priority (emerg/alert/crit/err/warning/notice/info/debug), time range, keyword grep, and boot session. Examples: manage_logs(unit='sshd', priority='err', lines=20) shows sshd errors; manage_logs(grep='mount', since='2 hours ago') shows recent mount-related messages.",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "unit": {
+                        "type": "string",
+                        "description": "Filter by systemd unit name (e.g. 'sshd', 'systemd-networkd', 'kernel')"
+                    },
+                    "priority": {
+                        "type": "string",
+                        "enum": ["emerg", "alert", "crit", "err", "warning", "notice", "info", "debug"],
+                        "description": "Log level filter (e.g. 'err' for errors and above)"
+                    },
+                    "lines": {
+                        "type": "integer",
+                        "description": "Number of log lines to return. Default: 50",
+                        "default": 50
+                    },
+                    "since": {
+                        "type": "string",
+                        "description": "Start time for log query (e.g. '5 minutes ago', '2 hours ago', 'yesterday', '2026-05-27 10:00:00')"
+                    },
+                    "until": {
+                        "type": "string",
+                        "description": "End time for log query (e.g. 'now', '10 minutes ago')"
+                    },
+                    "grep": {
+                        "type": "string",
+                        "description": "Keyword filter to search within log messages (case-insensitive)"
+                    },
+                    "boot": {
+                        "type": "boolean",
+                        "description": "If True, show only current boot logs. Default: True",
+                        "default": True
+                    }
+                }
+            },
+            annotations=ToolAnnotations(readOnlyHint=True)
+        ),
+
         # News Tools
         Tool(
             name="fetch_news",
@@ -1218,6 +1263,21 @@ async def call_tool(name: str, arguments: dict[str, Any]) -> list[TextContent | 
         lines = arguments.get("lines", 100)
         result = await diagnose_system(action, lines)
         return [TextContent(type="text", text=json.dumps(result, indent=2))]
+
+    # Journal tools
+    elif name == "manage_logs":
+        unit = arguments.get("unit")
+        priority = arguments.get("priority")
+        lines = arguments.get("lines", 50)
+        since = arguments.get("since")
+        until = arguments.get("until")
+        grep = arguments.get("grep")
+        boot = arguments.get("boot", True)
+        result = await manage_logs(
+            unit=unit, priority=priority, lines=lines,
+            since=since, until=until, grep=grep, boot=boot
+        )
+        return [TextContent(type="text", text=json.dumps(result, indent=2, ensure_ascii=False))]
 
     # News tools
     elif name == "fetch_news":
