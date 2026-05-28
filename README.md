@@ -133,6 +133,14 @@ Direct access to Arch ecosystem data via custom URI schemes:
 | `get_boot_logs`            | Retrieve journalctl boot logs        | systemd   |
 | `check_database_freshness` | Check package database sync status   | Arch only |
 
+#### BTRFS Monitoring & Management
+
+| Tool                       | Description                                                                                                                                                                                                                                                                          | Platform  |
+| -------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | --------- |
+| `analyze_btrfs`            | Unified BTRFS analysis (11 actions: filesystem_info, filesystem_df, filesystem_usage, subvolumes, subvolume_info, device_stats, device_usage, properties, scrub_status, snapshots, snapper_configs). Requires btrfs-progs and snapper.                                              | Arch only |
+| `manage_btrfs_snapshots`   | Manage snapper snapshots (4 actions: list, configs, create, delete). Supports pre/post snapshots, custom descriptions, and cleanup algorithms. Requires snapper.                                                                                                                     | Arch only |
+| `manage_btrfs_scrub`       | Manage BTRFS scrub operations (3 actions: status, start, cancel). Background scrub support with progress tracking. Requires btrfs-progs.                                                                                                                                             | Arch only |
+
 #### Transaction History & Logs
 
 | Tool                    | Description                                                                                                                                                                                                                                                                                                                   | Platform  |

@@ -293,6 +293,37 @@ TOOL_METADATA = {
         related_tools=["analyze_pacman_conf"],
         prerequisite_tools=[]
     ),
+
+    # ========================================================================
+    # BTRFS Tools (3 tools)
+    # ========================================================================
+    "analyze_btrfs": ToolMetadata(
+        name="analyze_btrfs",
+        category="monitoring",
+        platform="arch",
+        permission="read",
+        workflow="monitor",
+        related_tools=["manage_btrfs_snapshots", "manage_btrfs_scrub"],
+        prerequisite_tools=[]
+    ),
+    "manage_btrfs_snapshots": ToolMetadata(
+        name="manage_btrfs_snapshots",
+        category="lifecycle",
+        platform="arch",
+        permission="write",
+        workflow="maintain",
+        related_tools=["analyze_btrfs", "manage_btrfs_scrub"],
+        prerequisite_tools=[]
+    ),
+    "manage_btrfs_scrub": ToolMetadata(
+        name="manage_btrfs_scrub",
+        category="maintenance",
+        platform="arch",
+        permission="write",
+        workflow="maintain",
+        related_tools=["analyze_btrfs", "manage_btrfs_snapshots"],
+        prerequisite_tools=[]
+    ),
 }
 
 

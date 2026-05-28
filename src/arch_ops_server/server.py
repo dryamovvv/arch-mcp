@@ -78,6 +78,9 @@ from . import (
 
 from .groups import manage_groups
 
+# BTRFS functions
+from .btrfs import analyze_btrfs, manage_btrfs_snapshots, manage_btrfs_scrub
+
 # Configure logging
 logger = logging.getLogger(__name__)
 
@@ -1124,6 +1127,104 @@ async def list_tools() -> list[Tool]:
             },
             annotations=ToolAnnotations(readOnlyHint=True)
         ),
+
+        # BTRFS Tools
+        Tool(
+            name="analyze_btrfs",
+            description="[MONITORING] Unified BTRFS filesystem analysis tool. Actions: 'filesystem_info' (show device/size/label), 'filesystem_df' (per-profile disk usage), 'filesystem_usage' (detailed usage breakdown), 'subvolumes' (list all subvolumes), 'subvolume_info' (detailed subvolume info), 'device_stats' (per-device error counters), 'device_usage' (per-device allocation), 'properties' (filesystem properties like compression, label, ro), 'scrub_status' (current scrub state), 'snapshots' (list snapper snapshots), 'snapper_configs' (list all snapper configs). Only works on Arch Linux with BTRFS. Examples: analyze_btrfs(action='filesystem_info') → shows devices and label; analyze_btrfs(action='device_stats', path='/') → check for hardware errors; analyze_btrfs(action='snapshots', config='root') → list root snapshots.",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "action": {
+                        "type": "string",
+                        "enum": ["filesystem_info", "filesystem_df", "filesystem_usage", "subvolumes", "subvolume_info", "device_stats", "device_usage", "properties", "scrub_status", "snapshots", "snapper_configs"],
+                        "description": "Analysis action to perform"
+                    },
+                    "path": {
+                        "type": "string",
+                        "description": "BTRFS mount path (default: /)",
+                        "default": "/"
+                    },
+                    "config": {
+                        "type": "string",
+                        "description": "Snapper config name (default: root, for snapshots and snapper_configs actions)",
+                        "default": "root"
+                    }
+                },
+                "required": ["action"]
+            },
+            annotations=ToolAnnotations(readOnlyHint=True)
+        ),
+        Tool(
+            name="manage_btrfs_snapshots",
+            description="[LIFECYCLE] Manage BTRFS snapshots via snapper. Actions: 'list' (list snapshots), 'configs' (list snapper configs), 'create' (create a snapshot), 'delete' (delete a snapshot by ID). Only works on Arch Linux with snapper installed. Requires sudo. Examples: manage_btrfs_snapshots(action='list') → list snapshots; manage_btrfs_snapshots(action='create', description='Before update') → create pre-update snapshot; manage_btrfs_snapshots(action='delete', snapshot_id=5) → remove old snapshot.",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "action": {
+                        "type": "string",
+                        "enum": ["list", "configs", "create", "delete"],
+                        "description": "Operation: 'list' (list snapshots), 'configs' (list configs), 'create' (create snapshot), 'delete' (delete snapshot)"
+                    },
+                    "description": {
+                        "type": "string",
+                        "description": "Snapshot description (required for create)"
+                    },
+                    "snap_type": {
+                        "type": "string",
+                        "enum": ["single", "pre", "post"],
+                        "description": "Snapshot type (default: single)",
+                        "default": "single"
+                    },
+                    "pre_number": {
+                        "type": "integer",
+                        "description": "Pre-snapshot number (required for post type)"
+                    },
+                    "snapshot_id": {
+                        "type": "integer",
+                        "description": "Snapshot ID to delete (required for delete action)"
+                    },
+                    "config": {
+                        "type": "string",
+                        "description": "Snapper config name (default: root)",
+                        "default": "root"
+                    },
+                    "cleanup": {
+                        "type": "string",
+                        "description": "Cleanup algorithm (default: number)",
+                        "default": "number"
+                    }
+                },
+                "required": ["action"]
+            },
+            annotations=ToolAnnotations(readOnlyHint=False)
+        ),
+        Tool(
+            name="manage_btrfs_scrub",
+            description="[MAINTENANCE] Manage BTRFS scrub operations. Actions: 'status' (check scrub progress/results), 'start' (start a scrub), 'cancel' (cancel running scrub). Only works on Arch Linux with BTRFS. Requires sudo for start. Examples: manage_btrfs_scrub(action='status') → check last scrub; manage_btrfs_scrub(action='start') → start background scrub; manage_btrfs_scrub(action='cancel') → stop running scrub.",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "action": {
+                        "type": "string",
+                        "enum": ["status", "start", "cancel"],
+                        "description": "Scrub operation: 'status' (check progress/results), 'start' (start scrub), 'cancel' (cancel running scrub)"
+                    },
+                    "path": {
+                        "type": "string",
+                        "description": "BTRFS mount path (default: /)",
+                        "default": "/"
+                    },
+                    "background": {
+                        "type": "boolean",
+                        "description": "Run scrub in background (default: true)",
+                        "default": True
+                    }
+                },
+                "required": ["action"]
+            },
+            annotations=ToolAnnotations(readOnlyHint=False)
+        ),
     ]
 
 
@@ -1343,6 +1444,49 @@ async def call_tool(name: str, arguments: dict[str, Any]) -> list[TextContent | 
             return [TextContent(type="text", text=create_platform_error_message("check_database_freshness"))]
         
         result = await check_database_freshness()
+        return [TextContent(type="text", text=json.dumps(result, indent=2))]
+
+    # BTRFS Tools
+    elif name == "analyze_btrfs":
+        if not IS_ARCH:
+            return [TextContent(type="text", text=create_platform_error_message("analyze_btrfs"))]
+
+        action = arguments["action"]
+        path = arguments.get("path", "/")
+        config = arguments.get("config", "root")
+        result = await analyze_btrfs(action=action, path=path, config=config)
+        return [TextContent(type="text", text=json.dumps(result, indent=2))]
+
+    elif name == "manage_btrfs_snapshots":
+        if not IS_ARCH:
+            return [TextContent(type="text", text=create_platform_error_message("manage_btrfs_snapshots"))]
+
+        action = arguments["action"]
+        description = arguments.get("description", "")
+        snap_type = arguments.get("snap_type", "single")
+        pre_number = arguments.get("pre_number", None)
+        snapshot_id = arguments.get("snapshot_id", None)
+        config = arguments.get("config", "root")
+        cleanup = arguments.get("cleanup", "number")
+        result = await manage_btrfs_snapshots(
+            action=action,
+            description=description,
+            snap_type=snap_type,
+            pre_number=pre_number,
+            snapshot_id=snapshot_id,
+            config=config,
+            cleanup=cleanup
+        )
+        return [TextContent(type="text", text=json.dumps(result, indent=2))]
+
+    elif name == "manage_btrfs_scrub":
+        if not IS_ARCH:
+            return [TextContent(type="text", text=create_platform_error_message("manage_btrfs_scrub"))]
+
+        action = arguments["action"]
+        path = arguments.get("path", "/")
+        background = arguments.get("background", True)
+        result = await manage_btrfs_scrub(action=action, path=path, background=background)
         return [TextContent(type="text", text=json.dumps(result, indent=2))]
 
     else:
