@@ -1,6 +1,6 @@
 ---
-name: arch-audt
-description: Use arch-linux MCP server to manage your remote Raspberry Pi 5 running Arch Linux ARM. The server provides 27 tools for system monitoring, package management, AUR, configs, BTRFS, boot, mirrors, and health checks.
+name: arch-system
+description: Use arch-linux MCP server to manage your remote Raspberry Pi 5 running Arch Linux ARM. The server provides 30+ tools for system monitoring, package management, AUR, configs, BTRFS, boot, mirrors, health checks, and reporting.
 ---
 
 ## When to use
@@ -13,12 +13,13 @@ description: Use arch-linux MCP server to manage your remote Raspberry Pi 5 runn
 - Bootloader management (BOOT_ORDER, next boot device)
 - Mirror optimization
 - Arch Wiki lookups
+- Generating audit reports (bare table or free-form)
 
 ## Usage pattern
 
-Use `arch-linux_TOOL_NAME` to call tools. All remote operations are safe (read-only by default, writes require explicit flag). Run independent tools in parallel batches.
+Use `arch-linux_TOOL_NAME` to call tools — where `arch-linux` is the MCP server name (configurable; check your MCP client for the actual prefix). All remote operations are safe (read-only by default, writes require explicit flag). Run independent tools in parallel batches.
 
-## Tool catalog (27 tools)
+## Tool catalog (30+ tools)
 
 ### System (read-only)
 
@@ -29,7 +30,14 @@ Use `arch-linux_TOOL_NAME` to call tools. All remote operations are safe (read-o
 | `analyze_storage action="cache_stats"` | Pacman package cache stats |
 | `diagnose_system action="failed_services"` | Check for failed systemd units |
 | `diagnose_system action="boot_logs"` | Recent journalctl boot logs |
-| `run_system_health_check` | Comprehensive multi-tool health check |
+| `manage_logs` | Full journalctl interface with filtering (unit, priority, grep, boot, since/until) |
+| `run_system_health_check` | Comprehensive multi-tool health check (aggregates updates, orphans, DBs, services) |
+
+### Reports
+
+| Tool | Description |
+|---|---|
+| `generate_report action="full|system|packages|storage|btrfs|mirrors|config"` | Generate bare markdown table report. Use `action="full"` for complete audit. Preferred first tool for health checks. |
 
 ### Packages (read-only)
 
@@ -110,11 +118,14 @@ If any tool returns an error or timeout, note it in the report and continue.
 
 ## Audit plan (parallel batches)
 
+### Recommended first: `generate_report`
+
+For quick audits, start with `generate_report(action='full')` — it runs the key tools in parallel and returns a bare markdown table. For detailed interactive analysis, use the batches below.
+
 ### Batch 1 — all independent, run in parallel
 
 ```
 get_system_info
-run_system_health_check
 analyze_storage action="disk_usage"
 analyze_storage action="cache_stats"
 diagnose_system action="failed_services"
@@ -125,6 +136,7 @@ analyze_pacman_conf
 analyze_makepkg_conf
 fetch_news action="critical" limit=5
 optimize_mirrors action="health"
+manage_boot action="status"
 analyze_btrfs action="filesystem_info"
 analyze_btrfs action="filesystem_usage"
 analyze_btrfs action="device_stats"
@@ -133,11 +145,13 @@ analyze_btrfs action="snapshots"
 analyze_btrfs action="snapper_configs"
 ```
 
+> **Note:** `run_system_health_check` is a shortcut that aggregates many of the above tools (updates, orphans, DBs, services). Use it instead of individual tools if you only need a summary — but for detailed audit reports, run tools individually for richer data.
+
 ### Batch 2 — after batch 1, if needed
 
 ```
 diagnose_system action="boot_logs" lines=50
-get_official_package_info package_name="linux-rpi-16k"
+get_official_package_info package_name="<kernel-package>"  # e.g. linux-rpi-16k for RPi5, linux for x86_64
 analyze_btrfs action="subvolumes"
 analyze_btrfs action="subvolume_info"
 ```

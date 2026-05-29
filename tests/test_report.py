@@ -201,13 +201,18 @@ def test_parse_btrfs_scrub_skipped():
 
 def test_parse_boot_status():
     data = {
-        "boot_order_raw": "0xf416",
-        "boot_order_decoded": ["SD", "NVMe", "USB"],
-        "devices": ["nvme0n1", "mmcblk0"],
+        "boot_order": "0xf416",
+        "sequence": [
+            {"mode": "0x1", "label": "SD"},
+            {"mode": "0x6", "label": "NVMe"},
+            {"mode": "0x4", "label": "USB"},
+        ],
+        "available_devices": {"sd": True, "nvme": True, "usb": False},
     }
     rows = _parse_boot_status(data)
     assert "0xf416" in rows[0][2]
     assert "SD → NVMe → USB" in rows[1][2]
+    assert "sd, nvme" in rows[2][2]
 
 
 def test_parse_boot_status_skipped():

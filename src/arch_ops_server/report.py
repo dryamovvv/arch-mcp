@@ -204,11 +204,13 @@ def _parse_boot_status(data: Dict[str, Any]) -> List[Row]:
         rows.append(_fmt_row("boot", "Boot order", f"Skipped: {data.get('message', '')}"))
         return rows
 
-    boot_order = data.get("boot_order_raw", "?")
-    decoded = data.get("boot_order_decoded", [])
-    devices = data.get("devices", [])
+    boot_order = data.get("boot_order", "?")
+    sequence = data.get("sequence", [])
+    decoded_labels = [item.get("label", item) if isinstance(item, dict) else item for item in sequence]
+    devices_dict = data.get("available_devices", {})
+    devices = [k for k, v in devices_dict.items() if v]
     rows.append(_fmt_row("boot", "BOOT_ORDER", boot_order))
-    rows.append(_fmt_row("boot", "Boot sequence", " → ".join(decoded)))
+    rows.append(_fmt_row("boot", "Boot sequence", " → ".join(decoded_labels)))
     rows.append(_fmt_row("boot", "Available devices", ", ".join(devices) if devices else "none"))
     return rows
 
