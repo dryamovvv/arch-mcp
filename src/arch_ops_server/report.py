@@ -96,7 +96,7 @@ def _parse_updates(data: Dict[str, Any]) -> List[Row]:
         rows.append(_fmt_row("pacman", "Updates", f"Error: {data.get('message', '')}"))
         return rows
 
-    count = data.get("update_count", 0)
+    count = data.get("count", data.get("update_count", 0))
     ok = count == 0
     icon = _status_icon(ok)
     rows.append(_fmt_row("pacman", "Pending updates", f"{icon} {count} packages"))
@@ -122,13 +122,16 @@ def _parse_db_freshness(data: Dict[str, Any]) -> List[Row]:
         rows.append(_fmt_row("pacman", "DB freshness", f"Error: {data.get('message', '')}"))
         return rows
 
-    databases = data.get("databases", {}) if isinstance(data, dict) else {}
-    for db_name, info in databases.items():
-        hours = info.get("hours_since_sync", "?")
-        status = info.get("status", "?")
-        ok = status == "fresh"
-        icon = _status_icon(ok)
-        rows.append(_fmt_row("pacman", f"DB {db_name}", f"{icon} {hours}h ({status})"))
+    databases = data.get("databases", [])
+    if not isinstance(databases, list):
+        databases = []
+    for db in databases:
+        repo = db.get("repository", "?")
+        hours = db.get("hours_old", "?")
+        warning = db.get("warning", "")
+        stale = isinstance(hours, (int, float)) and hours > 24
+        icon = _status_icon(not stale)
+        rows.append(_fmt_row("pacman", f"DB {repo}", f"{icon} {hours}h{' — ' + warning if warning else ''}"))
     if not databases:
         rows.append(_fmt_row("pacman", "DB freshness", "No databases"))
     return rows
@@ -140,8 +143,9 @@ def _parse_mirror_health(data: Dict[str, Any]) -> List[Row]:
         rows.append(_fmt_row("mirrors", "Mirror health", f"Error: {data.get('message', '')}"))
         return rows
 
-    score = data.get("health_score", "?")
-    issues = data.get("issues", [])
+    assessment = data.get("assessment", data)
+    score = assessment.get("health_score", "?")
+    issues = assessment.get("issues", [])
     ok = isinstance(score, (int, float)) and score >= 70
     icon = _status_icon(ok)
     issue_text = f" ({len(issues)} issues)" if issues else ""
@@ -169,13 +173,19 @@ def _parse_btrfs_device_stats(data: Dict[str, Any]) -> List[Row]:
         rows.append(_fmt_row("btrfs", "Device errors", f"Skipped: {data.get('message', '')}"))
         return rows
 
-    devices = data.get("devices", [])
+    devices = data.get("devices", {})
     total_errors = 0
-    for dev in devices:
-        stats = dev.get("error_stats", {})
-        for val in stats.values():
-            if isinstance(val, (int, float)):
-                total_errors += int(val)
+    if isinstance(devices, dict):
+        for dev_path, stats in devices.items():
+            for val in stats.values():
+                if isinstance(val, (int, float)):
+                    total_errors += int(val)
+    elif isinstance(devices, list):
+        for dev in devices:
+            stats = dev.get("error_stats", {})
+            for val in stats.values():
+                if isinstance(val, (int, float)):
+                    total_errors += int(val)
 
     ok = total_errors == 0
     icon = _status_icon(ok)
