@@ -19,6 +19,18 @@ description: Use arch-linux MCP server to manage your remote Raspberry Pi 5 runn
 
 Use `arch-linux_TOOL_NAME` to call tools — where `arch-linux` is the MCP server name (configurable; check your MCP client for the actual prefix). All remote operations are safe (read-only by default, writes require explicit flag). Run independent tools in parallel batches.
 
+## Execution discipline
+
+**CRITICAL — update todos in real time.** При выполнении любой задачи:
+
+- Перед началом каждого шага ставь `in_progress`
+- Сразу после завершения шага ставь `completed`
+- Если обнаружил блокер — ставь `in_progress` и добавляй новый todo с описанием блокера
+- **НИКОГДА** не оставляй todos в устаревшем состоянии
+- В конце сессии проверь что все completed или явно cancelled
+
+Ты будешь работать на удалённой машине по SSH. Держи соединение восстановимым, следи за `Connection refused`.
+
 ## Tool catalog (30+ tools)
 
 ### System (read-only)

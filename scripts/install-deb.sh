@@ -11,16 +11,19 @@ VER="${LATEST_TAG#v}"
 DEB="arch-ops-server_${VER}_amd64.deb"
 URL="https://github.com/$REPO/releases/download/$LATEST_TAG/$DEB"
 
-echo "Downloading arch-ops-server $VER..."
+echo "Trying prebuilt package arch-ops-server $VER..."
 
-if curl -fsSL -o "$TMP_DEB" -w "%{http_code}" "$URL" 2>/dev/null | grep -q 200; then
+if curl -fsSL -o "$TMP_DEB" "$URL"; then
     echo "Downloaded prebuilt package."
-    sudo apt install -y "$TMP_DEB"
+    sudo apt install -y "$TMP_DEB" || {
+        echo "Install failed. Try building from source:"
+        echo "  git clone https://github.com/$REPO.git && cd arch-mcp/packaging/debian && sudo bash build-deb.sh"
+        exit 1
+    }
 else
-    echo "No prebuilt package found for this architecture."
-    echo "Building from source..."
+    echo "No prebuilt package found. Building from source..."
     TMP_DIR=$(mktemp -d)
-    git clone "https://github.com/$REPO.git" "$TMP_DIR" 2>/dev/null || true
+    git clone "https://github.com/$REPO.git" "$TMP_DIR"
     cd "$TMP_DIR/packaging/debian"
     sudo bash build-deb.sh
     sudo apt install -y "./dist/arch-ops-server_*.deb"
