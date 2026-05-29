@@ -21,42 +21,34 @@ install=arch-ops-server.install
 source=("$pkgname-$pkgver.tar.gz::https://github.com/dryamovvv/arch-mcp/archive/v$pkgver.tar.gz")
 sha256sums=('SKIP')
 
-build() {
+package() {
     cd "$srcdir/arch-mcp-$pkgver"
 
+    _vendor="/opt/$pkgname/vendor"
+
     uv pip install \
-        --target "$pkgdir/opt/$pkgname/vendor" \
+        --target "$pkgdir$_vendor" \
         --python /usr/bin/python \
         .
 
-    mkdir -p "$pkgdir/opt/$pkgname/src"
-    cp -r src "$pkgdir/opt/$pkgname/src/"
-}
-
-package() {
-    _vendor="/opt/$pkgname/vendor"
-    _bin="/opt/$pkgname/bin"
-
-    mkdir -p "$pkgdir$_bin"
-
-    cat > "$pkgdir$_bin/arch-ops-server" << 'WRAPPER'
+    cat > "$pkgdir$_vendor/bin/arch-ops-server" << 'WRAPPER'
 #!/bin/sh
 exec /usr/bin/env PYTHONPATH=/opt/arch-ops-server/vendor \
     /usr/bin/python -c 'from arch_ops_server import main; import asyncio; asyncio.run(main())'
 WRAPPER
-    chmod 755 "$pkgdir$_bin/arch-ops-server"
+    chmod 755 "$pkgdir$_vendor/bin/arch-ops-server"
 
-    cat > "$pkgdir$_bin/arch-ops-server-http" << 'WRAPPER'
+    cat > "$pkgdir$_vendor/bin/arch-ops-server-http" << 'WRAPPER'
 #!/bin/sh
 exec /usr/bin/env PYTHONPATH=/opt/arch-ops-server/vendor \
     /usr/bin/python -c 'from arch_ops_server import main_http; import asyncio; asyncio.run(main_http())'
 WRAPPER
-    chmod 755 "$pkgdir$_bin/arch-ops-server-http"
+    chmod 755 "$pkgdir$_vendor/bin/arch-ops-server-http"
 
     mkdir -p "$pkgdir/usr/bin"
-    ln -s "$_bin/arch-ops-server" "$pkgdir/usr/bin/arch-ops-server"
-    ln -s "$_bin/arch-ops-server-http" "$pkgdir/usr/bin/arch-ops-server-http"
+    ln -s "$_vendor/bin/arch-ops-server" "$pkgdir/usr/bin/arch-ops-server"
+    ln -s "$_vendor/bin/arch-ops-server-http" "$pkgdir/usr/bin/arch-ops-server-http"
 
-    install -Dm644 "$srcdir/arch-mcp-$pkgver/packaging/arch/arch-ops-server.service" \
+    install -Dm644 packaging/arch/arch-ops-server.service \
         "$pkgdir/etc/systemd/system/arch-ops-server.service"
 }
