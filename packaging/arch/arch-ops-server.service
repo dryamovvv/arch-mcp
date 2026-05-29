@@ -10,6 +10,7 @@ ExecStart=/usr/bin/arch-ops-server-http
 Restart=on-failure
 RestartSec=5
 Environment=PYTHONUNBUFFERED=1
+Environment=PYTHONPATH=/opt/arch-ops-server/vendor
 SyslogIdentifier=arch-ops-server
 
 [Install]
