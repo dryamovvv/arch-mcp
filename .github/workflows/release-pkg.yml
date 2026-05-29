@@ -5,6 +5,9 @@ on:
     tags:
       - 'v*.*.*'
 
+permissions:
+  contents: write
+
 jobs:
   build-pkg:
     name: Build .pkg.tar.xz
@@ -41,5 +44,5 @@ jobs:
       - name: Upload to Release
         uses: softprops/action-gh-release@v2
         with:
-          files: packaging/arch/arch-ops-server-*.pkg.tar.xz
+          files: packaging/arch/arch-ops-server-*.pkg.tar.zst
           fail_on_unmatched_files: true
