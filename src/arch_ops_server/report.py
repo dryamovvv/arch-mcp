@@ -32,15 +32,14 @@ def _parse_system_info(data: Dict[str, Any]) -> List[Row]:
     arch = data.get("architecture", "?")
     hostname = data.get("hostname", "?")
     uptime = data.get("uptime", "?")
-    mem = data.get("memory", {})
-    total = mem.get("total", "?")
-    used = mem.get("used", "?")
+    total_mb = data.get("memory_total_mb", "?")
+    avail_mb = data.get("memory_available_mb", "?")
 
     rows.append(_fmt_row("uname", "Kernel", kernel))
     rows.append(_fmt_row("uname", "Architecture", arch))
     rows.append(_fmt_row("uname", "Hostname", hostname))
     rows.append(_fmt_row("uname", "Uptime", str(uptime)))
-    rows.append(_fmt_row("free", "RAM", f"{used} / {total}"))
+    rows.append(_fmt_row("free", "RAM", f"{avail_mb}M free / {total_mb}M total"))
     return rows
 
 
@@ -50,17 +49,23 @@ def _parse_disk_usage(data: Dict[str, Any]) -> List[Row]:
         rows.append(_fmt_row("df", "Disk usage", f"Error: {data.get('message', '')}"))
         return rows
 
-    filesystems = data.get("filesystems", []) if isinstance(data, dict) else []
-    for fs in filesystems:
-        name = fs.get("filesystem", "?")
-        used_pct = fs.get("used_percent", "?")
-        avail = fs.get("available", "?")
-        ok = isinstance(used_pct, (int, float)) and used_pct < 90
-        icon = _status_icon(ok)
-        rows.append(_fmt_row(
-            "df", f"{name} ({avail} free)", f"{icon} {used_pct}% used"
-        ))
-    if not filesystems:
+    disk_usage = data.get("disk_usage", {})
+    if isinstance(disk_usage, dict):
+        for path, info in disk_usage.items():
+            if not isinstance(info, dict):
+                continue
+            used_pct_str = info.get("use_percent", "?").replace("%", "")
+            try:
+                used_pct = float(used_pct_str)
+            except (ValueError, TypeError):
+                used_pct = 0
+            avail = info.get("available", "?")
+            ok = used_pct < 90
+            icon = _status_icon(ok)
+            rows.append(_fmt_row(
+                "df", f"{path} ({avail} free)", f"{icon} {used_pct}% used"
+            ))
+    if not disk_usage:
         rows.append(_fmt_row("df", "Disk usage", "No filesystems"))
     return rows
 
@@ -71,9 +76,9 @@ def _parse_cache_stats(data: Dict[str, Any]) -> List[Row]:
         rows.append(_fmt_row("paccache", "Pacman cache", f"Error: {data.get('message', '')}"))
         return rows
 
-    size = data.get("current_size", "?")
-    packages = data.get("cached_packages", "?")
-    rows.append(_fmt_row("paccache", "Pacman cache size", f"{size} ({packages} packages)"))
+    size = data.get("total_size_mb", data.get("total_size_gb", "?"))
+    packages = data.get("package_count", "?")
+    rows.append(_fmt_row("paccache", "Pacman cache size", f"{size} MB ({packages} packages)"))
     return rows
 
 

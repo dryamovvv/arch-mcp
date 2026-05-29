@@ -48,7 +48,8 @@ def test_parse_system_info_ok():
         "architecture": "aarch64",
         "hostname": "rpi5",
         "uptime": "3 days",
-        "memory": {"total": "16G", "used": "2G"},
+        "memory_total_mb": 16384,
+        "memory_available_mb": 2048,
     }
     rows = _parse_system_info(data)
     assert any("6.18" in r[2] for r in rows)
@@ -62,16 +63,16 @@ def test_parse_system_info_error():
 
 def test_parse_disk_usage_ok():
     data = {
-        "filesystems": [
-            {"filesystem": "/", "used_percent": 45, "available": "500G"},
-        ]
+        "disk_usage": {
+            "/": {"use_percent": "45%", "available": "500G"},
+        }
     }
     rows = _parse_disk_usage(data)
-    assert any("45%" in r[2] for r in rows)
+    assert any("45" in r[2] for r in rows)
 
 
 def test_parse_disk_usage_empty():
-    rows = _parse_disk_usage({"filesystems": []})
+    rows = _parse_disk_usage({"disk_usage": {}})
     assert "No filesystems" in rows[0][2]
 
 
@@ -96,12 +97,12 @@ def test_parse_failed_services_error():
 
 
 def test_parse_updates_ok():
-    rows = _parse_updates({"update_count": 0})
+    rows = _parse_updates({"count": 0})
     assert "\u2705" in rows[0][2]
 
 
 def test_parse_updates_pending():
-    rows = _parse_updates({"update_count": 5})
+    rows = _parse_updates({"count": 5})
     assert "\u274c" in rows[0][2]
     assert "5" in rows[0][2]
 
@@ -128,10 +129,10 @@ def test_parse_orphans_error():
 
 def test_parse_db_freshness_mixed():
     data = {
-        "databases": {
-            "core": {"hours_since_sync": 2, "status": "fresh"},
-            "extra": {"hours_since_sync": 48, "status": "stale"},
-        }
+        "databases": [
+            {"repository": "core", "hours_old": 2, "warning": ""},
+            {"repository": "extra", "hours_old": 48, "warning": "stale"},
+        ]
     }
     rows = _parse_db_freshness(data)
     assert len(rows) == 2
@@ -140,7 +141,7 @@ def test_parse_db_freshness_mixed():
 
 
 def test_parse_db_freshness_empty():
-    rows = _parse_db_freshness({"databases": {}})
+    rows = _parse_db_freshness({"databases": []})
     assert "No databases" in rows[0][2]
 
 
