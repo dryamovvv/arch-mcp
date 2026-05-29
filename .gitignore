@@ -64,3 +64,4 @@ htmlcov/
 # Fork — exclude large files
 uv.lock
 assets/
+skills-lock.json

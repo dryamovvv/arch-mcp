@@ -226,6 +226,25 @@ The package installs:
 - `/usr/bin/arch-ops-server-http` — HTTP server on :8080
 - Systemd service enabled and started automatically
 
+### Debian / Ubuntu — systemd service included
+
+One-liner:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/dryamovvv/arch-mcp/master/scripts/install-deb.sh | bash
+```
+
+Or build locally:
+
+```bash
+git clone https://github.com/dryamovvv/arch-mcp.git
+cd arch-mcp/packaging/debian
+sudo bash build-deb.sh
+sudo apt install ./dist/arch-ops-server_*.deb
+```
+
+Same installed files as Arch package above.
+
 ---
 
 ## Configuration
