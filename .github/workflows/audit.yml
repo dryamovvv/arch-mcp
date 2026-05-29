@@ -1,0 +1,29 @@
+name: System Audit Report
+
+on:
+  schedule:
+    - cron: '0 6 * * *'  # Daily at 06:00 UTC
+  workflow_dispatch:      # Manual trigger
+
+jobs:
+  audit:
+    name: Generate health report
+    runs-on: ubuntu-latest
+    steps:
+      - name: Call generate_report via HTTP API
+        run: |
+          REPORT=$(curl -sf -X POST "${AUDIT_URL}/mcp" \
+            -H "Content-Type: application/json" \
+            -d '{"jsonrpc":"2.0","method":"tools/call","params":{"name":"generate_report","arguments":{"action":"full"}},"id":1}' \
+            | python3 -c "import sys,json; print(json.load(sys.stdin)['content'][0]['text'])" \
+            | python3 -c "import sys,json; print(json.load(sys.stdin)['report'])" )
+          echo "$REPORT" > audit-report.md
+          cat audit-report.md
+        env:
+          AUDIT_URL: ${{ secrets.AUDIT_URL }}
+
+      - name: Upload report artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: audit-report
+          path: audit-report.md

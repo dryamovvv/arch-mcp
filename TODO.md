@@ -37,7 +37,7 @@
 
 ### Что нужно сделать
 
-- [ ] `generate_report` MCP-инструмент (bare table)
-- [ ] SKILL `audit-report` (свободная форма)
-- [ ] CI workflow `.github/workflows/audit.yml`
-- [ ] Интеграция с существующими health/analyze/diagnose инструментами
+- [x] `generate_report` MCP-инструмент (bare table)
+- [x] SKILL `audit-report` (свободная форма)
+- [x] CI workflow `.github/workflows/audit.yml`
+- [x] Интеграция с существующими health/analyze/diagnose инструментами

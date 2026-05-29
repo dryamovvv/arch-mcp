@@ -20,7 +20,8 @@ Category = Literal[
     "history",
     "mirrors",
     "config",
-    "boot"
+    "boot",
+    "report"
 ]
 
 Platform = Literal["any", "arch", "systemd"]
@@ -336,6 +337,15 @@ TOOL_METADATA = {
         permission="write",
         workflow="maintain",
         related_tools=[],
+        prerequisite_tools=[]
+    ),
+    "generate_report": ToolMetadata(
+        name="generate_report",
+        category="report",
+        platform="any",
+        permission="read",
+        workflow="monitor",
+        related_tools=["get_system_info", "analyze_storage", "diagnose_system", "check_updates_dry_run", "optimize_mirrors", "analyze_btrfs", "manage_boot"],
         prerequisite_tools=[]
     ),
 }

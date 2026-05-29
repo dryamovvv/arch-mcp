@@ -83,6 +83,7 @@ from .btrfs import analyze_btrfs, manage_btrfs_snapshots, manage_btrfs_scrub
 
 # Boot management
 from .boot import manage_boot
+from .report import generate_report
 
 # Configure logging
 logger = logging.getLogger(__name__)
@@ -1258,6 +1259,22 @@ async def list_tools() -> list[Tool]:
             },
             annotations=ToolAnnotations(readOnlyHint=False)
         ),
+        Tool(
+            name="generate_report",
+            description="[MONITORING] Generate a bare markdown table health report by aggregating results from all monitoring tools. Returns a table with columns: Программа | Что значит | Результат. Supports scopes: 'full' (all sections), 'system', 'packages', 'storage', 'btrfs', 'mirrors', 'config'. CI-friendly — can be called via HTTP API and saved as artifact.",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "action": {
+                        "type": "string",
+                        "enum": ["full", "system", "packages", "storage", "btrfs", "mirrors", "config"],
+                        "description": "Report scope: 'full' for all sections, or a specific section",
+                        "default": "full"
+                    }
+                }
+            },
+            annotations=ToolAnnotations(readOnlyHint=True)
+        ),
     ]
 
 
@@ -1532,6 +1549,11 @@ async def call_tool(name: str, arguments: dict[str, Any]) -> list[TextContent | 
         do_reboot = arguments.get("reboot", False)
         result = await manage_boot(action=action, order=order, device=device, reboot=do_reboot)
         return [TextContent(type="text", text=json.dumps(result, indent=2))]
+
+    elif name == "generate_report":
+        action = arguments.get("action", "full")
+        result = await generate_report(action=action)
+        return [TextContent(type="text", text=json.dumps(result, indent=2, ensure_ascii=False))]
 
     else:
         raise ValueError(f"Unknown tool: {name}")
