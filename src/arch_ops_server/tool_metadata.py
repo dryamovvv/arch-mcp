@@ -19,7 +19,8 @@ Category = Literal[
     "monitoring",
     "history",
     "mirrors",
-    "config"
+    "config",
+    "boot"
 ]
 
 Platform = Literal["any", "arch", "systemd"]
@@ -38,7 +39,7 @@ class ToolMetadata:
     prerequisite_tools: List[str] = field(default_factory=list)
 
 
-# Complete tool metadata definitions for 28 registered tools
+# Complete tool metadata definitions for 29 registered tools
 TOOL_METADATA = {
      # ========================================================================
      # Discovery & Information (4 tools)
@@ -322,6 +323,19 @@ TOOL_METADATA = {
         permission="write",
         workflow="maintain",
         related_tools=["analyze_btrfs", "manage_btrfs_snapshots"],
+        prerequisite_tools=[]
+    ),
+
+    # ========================================================================
+    # Boot Management (1 tool)
+    # ========================================================================
+    "manage_boot": ToolMetadata(
+        name="manage_boot",
+        category="boot",
+        platform="arch",
+        permission="write",
+        workflow="maintain",
+        related_tools=[],
         prerequisite_tools=[]
     ),
 }

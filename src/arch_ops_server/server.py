@@ -81,6 +81,9 @@ from .groups import manage_groups
 # BTRFS functions
 from .btrfs import analyze_btrfs, manage_btrfs_snapshots, manage_btrfs_scrub
 
+# Boot management
+from .boot import manage_boot
+
 # Configure logging
 logger = logging.getLogger(__name__)
 
@@ -1225,6 +1228,36 @@ async def list_tools() -> list[Tool]:
             },
             annotations=ToolAnnotations(readOnlyHint=False)
         ),
+        Tool(
+            name="manage_boot",
+            description="[BOOT] Manage Raspberry Pi bootloader configuration (BOOT_ORDER). Actions: 'status' (read current boot order, decode sequence, detect available devices), 'set_boot_order' (permanently change boot priority via preset name like 'nvme_first', 'sd_nvme' or raw hex), 'next_boot' (one-time boot from SD/NVMe/USB with automatic restore of original order). Only works on Arch Linux ARM on RPi. Requires rpi-eeprom. Examples: manage_boot(action='status') → current boot config; manage_boot(action='set_boot_order', order='nvme_first') → NVMe priority; manage_boot(action='next_boot', device='sd', reboot=True) → reboot to SD card.",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "action": {
+                        "type": "string",
+                        "enum": ["status", "set_boot_order", "next_boot"],
+                        "description": "Action: 'status' (read boot order), 'set_boot_order' (permanent change), 'next_boot' (one-time + optional reboot)"
+                    },
+                    "order": {
+                        "type": "string",
+                        "description": "For 'set_boot_order': preset name (sd_first, nvme_first, usb_first, sd_nvme, nvme_sd, sd_only, nvme_only, usb_only) or raw hex like 0xf416"
+                    },
+                    "device": {
+                        "type": "string",
+                        "enum": ["sd", "nvme", "usb"],
+                        "description": "For 'next_boot': boot device for next boot only (sd, nvme, usb)"
+                    },
+                    "reboot": {
+                        "type": "boolean",
+                        "description": "For 'next_boot': reboot immediately after setting (default: false)",
+                        "default": False
+                    }
+                },
+                "required": ["action"]
+            },
+            annotations=ToolAnnotations(readOnlyHint=False)
+        ),
     ]
 
 
@@ -1487,6 +1520,17 @@ async def call_tool(name: str, arguments: dict[str, Any]) -> list[TextContent | 
         path = arguments.get("path", "/")
         background = arguments.get("background", True)
         result = await manage_btrfs_scrub(action=action, path=path, background=background)
+        return [TextContent(type="text", text=json.dumps(result, indent=2))]
+
+    elif name == "manage_boot":
+        if not IS_ARCH:
+            return [TextContent(type="text", text=create_platform_error_message("manage_boot"))]
+
+        action = arguments["action"]
+        order = arguments.get("order", None)
+        device = arguments.get("device", None)
+        do_reboot = arguments.get("reboot", False)
+        result = await manage_boot(action=action, order=order, device=device, reboot=do_reboot)
         return [TextContent(type="text", text=json.dumps(result, indent=2))]
 
     else:

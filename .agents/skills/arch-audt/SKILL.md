@@ -1,6 +1,6 @@
 ---
 name: arch-audt
-description: Use arch-linux MCP server to manage your remote Raspberry Pi 5 running Arch Linux ARM. The server provides 26 tools for system monitoring, package management, AUR, configs, BTRFS, mirrors, and health checks.
+description: Use arch-linux MCP server to manage your remote Raspberry Pi 5 running Arch Linux ARM. The server provides 27 tools for system monitoring, package management, AUR, configs, BTRFS, boot, mirrors, and health checks.
 ---
 
 ## When to use
@@ -10,6 +10,7 @@ description: Use arch-linux MCP server to manage your remote Raspberry Pi 5 runn
 - System diagnostics or health checks
 - Config analysis (pacman.conf, makepkg.conf)
 - BTRFS filesystem monitoring, snapshots, or scrub
+- Bootloader management (BOOT_ORDER, next boot device)
 - Mirror optimization
 - Arch Wiki lookups
 
@@ -17,7 +18,7 @@ description: Use arch-linux MCP server to manage your remote Raspberry Pi 5 runn
 
 Use `arch-linux_TOOL_NAME` to call tools. All remote operations are safe (read-only by default, writes require explicit flag). Run independent tools in parallel batches.
 
-## Tool catalog (26 tools)
+## Tool catalog (27 tools)
 
 ### System (read-only)
 
@@ -85,6 +86,12 @@ Use `arch-linux_TOOL_NAME` to call tools. All remote operations are safe (read-o
 | `analyze_btrfs` | 11 actions: filesystem_info, filesystem_df, filesystem_usage, subvolumes, subvolume_info, device_stats, device_usage, properties, scrub_status, snapshots, snapper_configs |
 | `manage_btrfs_snapshots` | 4 actions: list, configs, create, delete (via snapper) |
 | `manage_btrfs_scrub` | 3 actions: status, start, cancel |
+
+### Boot (RPi only)
+
+| Tool | Description |
+|---|---|
+| `manage_boot` | 3 actions: status (decode BOOT_ORDER + detect devices), set_boot_order (permanent change), next_boot (one-time boot from SD/NVMe/USB with auto-restore) |
 
 ## Report format
 
