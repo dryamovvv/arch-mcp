@@ -1,0 +1,16 @@
+[Unit]
+Description=Arch Linux MCP Server (HTTP)
+Documentation=https://github.com/dryamovvv/arch-mcp
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+ExecStart=/usr/bin/arch-ops-server-http
+Restart=on-failure
+RestartSec=5
+Environment=PYTHONUNBUFFERED=1
+SyslogIdentifier=arch-ops-server
+
+[Install]
+WantedBy=multi-user.target

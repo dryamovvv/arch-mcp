@@ -1,0 +1,19 @@
+post_install() {
+    echo "Enabling and starting arch-ops-server..."
+    systemctl daemon-reload
+    systemctl enable --now arch-ops-server.service
+    echo "arch-ops-server is now running on http://localhost:8080"
+}
+
+pre_remove() {
+    echo "Stopping arch-ops-server..."
+    systemctl stop arch-ops-server.service 2>/dev/null || true
+    systemctl disable arch-ops-server.service 2>/dev/null || true
+}
+
+post_upgrade() {
+    echo "Restarting arch-ops-server..."
+    systemctl daemon-reload
+    systemctl restart arch-ops-server.service
+    echo "arch-ops-server restarted."
+}

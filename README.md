@@ -141,6 +141,12 @@ Direct access to Arch ecosystem data via custom URI schemes:
 | `manage_btrfs_snapshots`   | Manage snapper snapshots (4 actions: list, configs, create, delete). Supports pre/post snapshots, custom descriptions, and cleanup algorithms. Requires snapper.                                                                                                                     | Arch only |
 | `manage_btrfs_scrub`       | Manage BTRFS scrub operations (3 actions: status, start, cancel). Background scrub support with progress tracking. Requires btrfs-progs.                                                                                                                                             | Arch only |
 
+#### Boot Management (Raspberry Pi)
+
+| Tool            | Description                                                                                                                                                                                    | Platform  |
+| --------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------- |
+| `manage_boot`   | Manage RPi bootloader (3 actions: status, set_boot_order, next_boot). Set boot order via 8 presets or raw hex. Supports one-time boot device override via tryboot. Requires rpi-eeprom.         | Arch only |
+
 #### Transaction History & Logs
 
 | Tool                    | Description                                                                                                                                                                                                                                                                                                                   | Platform  |
@@ -198,6 +204,27 @@ Direct access to Arch ecosystem data via custom URI schemes:
 ```bash
 uvx arch-ops-server
 ```
+
+### Arch Linux (pacman) — systemd service included
+
+One-liner (downloads prebuilt package from GitHub Releases):
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/dryamovvv/arch-mcp/master/scripts/install.sh | bash
+```
+
+Or build locally with `makepkg` (recommended for RPi5 aarch64):
+
+```bash
+git clone https://github.com/dryamovvv/arch-mcp.git
+cd arch-mcp/packaging/arch
+makepkg -si
+```
+
+The package installs:
+- `/usr/bin/arch-ops-server` — STDIO server
+- `/usr/bin/arch-ops-server-http` — HTTP server on :8080
+- Systemd service enabled and started automatically
 
 ---
 

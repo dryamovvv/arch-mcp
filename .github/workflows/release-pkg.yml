@@ -1,0 +1,45 @@
+name: Release Arch Package
+
+on:
+  push:
+    tags:
+      - 'v*.*.*'
+
+jobs:
+  build-pkg:
+    name: Build .pkg.tar.xz
+    runs-on: ubuntu-latest
+    container:
+      image: archlinux:latest
+      options: --privileged
+
+    steps:
+      - name: Install build deps
+        run: |
+          pacman -Syu --noconfirm
+          pacman -S --noconfirm base-devel git uv python
+
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Create build user
+        run: |
+          useradd -m builder
+          echo "builder ALL=(ALL) NOPASSWD: ALL" >> /etc/sudoers
+
+      - name: Set version from tag
+        run: |
+          TAG="${GITHUB_REF#refs/tags/}"
+          VER="${TAG#v}"
+          sed -i "s/^pkgver=.*/pkgver=$VER/" packaging/arch/PKGBUILD
+
+      - name: Build package
+        run: |
+          chown -R builder:builder .
+          su builder -c "cd packaging/arch && makepkg -sf --noconfirm"
+
+      - name: Upload to Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: packaging/arch/arch-ops-server-*.pkg.tar.xz
+          fail_on_unmatched_files: true

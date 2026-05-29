@@ -1,0 +1,62 @@
+# Maintainer: dryamovvv <https://github.com/dryamovvv/arch-mcp>
+# Contributor: Nihal <2tv8xupqg@mozmail.com>
+
+pkgname=arch-ops-server
+pkgver=3.4.1
+pkgrel=1
+pkgdesc="MCP server bridging AI assistants with Arch Linux ecosystem (Wiki, AUR, repos, system management)"
+arch=('any')
+url="https://github.com/dryamovvv/arch-mcp"
+license=('GPL3' 'MIT')
+depends=('python>=3.11')
+optdepends=(
+    'btrfs-progs: BTRFS monitoring and management'
+    'snapper: BTRFS snapshot management'
+    'rpi-eeprom: RPi bootloader management'
+    'pacman: package management (standard Arch)'
+    'paru: AUR helper for package installation'
+)
+makedepends=('uv')
+install=arch-ops-server.install
+source=("$pkgname-$pkgver.tar.gz::https://github.com/dryamovvv/arch-mcp/archive/v$pkgver.tar.gz")
+sha256sums=('SKIP')
+
+build() {
+    cd "$srcdir/arch-mcp-$pkgver"
+
+    uv pip install \
+        --target "$pkgdir/opt/$pkgname/vendor" \
+        --python /usr/bin/python \
+        .
+
+    mkdir -p "$pkgdir/opt/$pkgname/src"
+    cp -r src "$pkgdir/opt/$pkgname/src/"
+}
+
+package() {
+    _vendor="/opt/$pkgname/vendor"
+    _bin="/opt/$pkgname/bin"
+
+    mkdir -p "$pkgdir$_bin"
+
+    cat > "$pkgdir$_bin/arch-ops-server" << 'WRAPPER'
+#!/bin/sh
+exec /usr/bin/env PYTHONPATH=/opt/arch-ops-server/vendor \
+    /usr/bin/python -c 'from arch_ops_server import main; import asyncio; asyncio.run(main())'
+WRAPPER
+    chmod 755 "$pkgdir$_bin/arch-ops-server"
+
+    cat > "$pkgdir$_bin/arch-ops-server-http" << 'WRAPPER'
+#!/bin/sh
+exec /usr/bin/env PYTHONPATH=/opt/arch-ops-server/vendor \
+    /usr/bin/python -c 'from arch_ops_server import main_http; import asyncio; asyncio.run(main_http())'
+WRAPPER
+    chmod 755 "$pkgdir$_bin/arch-ops-server-http"
+
+    mkdir -p "$pkgdir/usr/bin"
+    ln -s "$_bin/arch-ops-server" "$pkgdir/usr/bin/arch-ops-server"
+    ln -s "$_bin/arch-ops-server-http" "$pkgdir/usr/bin/arch-ops-server-http"
+
+    install -Dm644 "$srcdir/arch-mcp-$pkgver/packaging/arch/arch-ops-server.service" \
+        "$pkgdir/etc/systemd/system/arch-ops-server.service"
+}
