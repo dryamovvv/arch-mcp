@@ -2,7 +2,7 @@
 set -euo pipefail
 
 PKG="arch-ops-server"
-VER="${1:-3.4.1}"
+VER="${1:-3.4.2}"
 BUILD_DIR="/tmp/${PKG}_${VER}_build"
 DEB_FILE="${PKG}_${VER}_amd64.deb"
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"

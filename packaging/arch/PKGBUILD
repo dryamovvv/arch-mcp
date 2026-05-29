@@ -2,7 +2,7 @@
 # Contributor: Nihal <2tv8xupqg@mozmail.com>
 
 pkgname=arch-ops-server
-pkgver=3.4.1
+pkgver=3.4.2
 pkgrel=1
 pkgdesc="MCP server bridging AI assistants with Arch Linux ecosystem (Wiki, AUR, repos, system management)"
 arch=('any')
