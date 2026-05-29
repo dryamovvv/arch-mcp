@@ -1,0 +1,6 @@
+#!/bin/bash
+set -e
+
+echo "Stopping arch-ops-server..."
+systemctl stop arch-ops-server.service 2>/dev/null || true
+systemctl disable arch-ops-server.service 2>/dev/null || true

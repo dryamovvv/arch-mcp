@@ -1,0 +1,7 @@
+#!/bin/bash
+set -e
+
+echo "Enabling and starting arch-ops-server..."
+systemctl daemon-reload
+systemctl enable --now arch-ops-server.service
+echo "arch-ops-server is now running on http://localhost:8080"

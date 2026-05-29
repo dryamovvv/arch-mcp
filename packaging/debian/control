@@ -1,0 +1,16 @@
+Package: arch-ops-server
+Version: 3.4.1
+Section: utils
+Priority: optional
+Architecture: amd64
+Depends: python3 (>= 3.11)
+Recommends: btrfs-progs, snapper, rpi-eeprom
+Maintainer: dryamovvv <https://github.com/dryamovvv/arch-mcp>
+Homepage: https://github.com/dryamovvv/arch-mcp
+Description: MCP server bridging AI assistants with Arch Linux ecosystem
+ Arch Linux MCP server providing programmatic access to
+ Arch Wiki, AUR, official repositories, system management,
+ BTRFS monitoring, boot configuration, and more.
+ .
+ 26+ tools for system monitoring, package management,
+ security auditing, mirror optimization, and diagnostics.
