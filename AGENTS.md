@@ -17,11 +17,11 @@ No lint, typecheck, or format commands are configured. Do not fabricate them.
 
 ## Architecture
 
-- **`src/arch_ops_server/server.py`** — MCP server: 22 tools, 8 prompts, resources. The core file (~2000 lines).
+- **`src/arch_ops_server/server.py`** — MCP server: 27 tools, 8 prompts, resources. The core file (~2200 lines).
 - **`src/arch_ops_server/http_server.py`** — HTTP/SSE transport (Starlette + uvicorn) for Smithery/cloud clients.
 - **`src/arch_ops_server/pacman.py`** — Hybrid local/remote: tries `pacman -Si` first, falls back to archlinux.org API.
 - **`src/arch_ops_server/aur.py`** — AUR search, PKGBUILD retrieval, security audit (50+ red flags).
-- **Remaining modules** — `wiki.py`, `system.py`, `news.py`, `mirrors.py`, `config.py`, `logs.py`, `groups.py`, `journal.py`, `system_health_check.py`, `utils.py`, `tool_metadata.py`.
+- **Remaining modules** — `wiki.py`, `system.py`, `news.py`, `mirrors.py`, `config.py`, `logs.py`, `groups.py`, `journal.py`, `system_health_check.py`, `utils.py`, `tool_metadata.py`, `btrfs.py`, `boot.py`.
 
 ## Key conventions
 
