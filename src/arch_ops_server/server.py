@@ -85,6 +85,18 @@ from .btrfs import analyze_btrfs, manage_btrfs_snapshots, manage_btrfs_scrub
 from .boot import manage_boot
 from .report import generate_report
 
+# OS Build Testing
+from .build_test import (
+    verify_boot_artifacts,
+    verify_service_health,
+    verify_homectl_user,
+    compare_fstab,
+    compare_packages,
+    check_security_posture,
+    check_rpi_hardware,
+    benchmark_quick,
+)
+
 # Configure logging
 logger = logging.getLogger(__name__)
 
@@ -1275,6 +1287,96 @@ async def list_tools() -> list[Tool]:
             },
             annotations=ToolAnnotations(readOnlyHint=True)
         ),
+        Tool(
+            name="verify_boot_artifacts",
+            description="[MONITORING] Validate boot partition files on RPi5 Arch Linux images. Actions: 'list' (list files on /boot), 'check' (verify critical files: kernel8.img, initramfs-linux.img, bcm2712-rpi-5-b.dtb, config.txt, cmdline.txt), 'cmdline' (parse cmdline.txt for root=UUID, subvol=@, __ROOT_UUID__ placeholder). Use after image build or first boot.",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "action": {"type": "string", "enum": ["list", "check", "cmdline"], "description": "Verification mode", "default": "check"}
+                }
+            },
+            annotations=ToolAnnotations(readOnlyHint=True)
+        ),
+        Tool(
+            name="verify_service_health",
+            description="[MONITORING] Aggregate systemd service health after boot. Actions: 'status' (list all services with state), 'checklist' (verify critical services: sshd, systemd-networkd, systemd-resolved, snapper-timeline), 'compare' (verify against custom checklist). Use after first boot to confirm all services started.",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "action": {"type": "string", "enum": ["status", "checklist", "compare"], "description": "Health check mode", "default": "checklist"},
+                    "checklist": {"type": "array", "items": {"type": "string"}, "description": "Custom service list for compare action (e.g. ['sshd.service', 'fail2ban.service'])"}
+                }
+            },
+            annotations=ToolAnnotations(readOnlyHint=True)
+        ),
+        Tool(
+            name="verify_homectl_user",
+            description="[MONITORING] Verify systemd-homed user configuration. Actions: 'status' (dump homectl list + loginctl info), 'check' (validate storage=subvolume, wheel group, linger, snapper config). Use after build to confirm user created via homectl, not useradd.",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "action": {"type": "string", "enum": ["status", "check"], "description": "Verification mode", "default": "check"}
+                }
+            },
+            annotations=ToolAnnotations(readOnlyHint=True)
+        ),
+        Tool(
+            name="compare_fstab",
+            description="[CONFIG] Validate /etc/fstab against expected BTRFS subvolume layout. Actions: 'check' (verify 8 subvolumes present: @, @home, @snapshots, @swap, @var_log, @var_cache, @var_tmp, @var_lib), 'options' (check mount options: compress=zstd, nodatacow, nofail on ESP). Critical for btrfs — wrong fstab = unbootable system.",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "action": {"type": "string", "enum": ["check", "options"], "description": "Check mode: verify subvolumes or mount options", "default": "check"}
+                }
+            },
+            annotations=ToolAnnotations(readOnlyHint=True)
+        ),
+        Tool(
+            name="compare_packages",
+            description="[MAINTENANCE] Compare installed packages against BUILD_PACKAGES from build.conf. Actions: 'diff' (full diff: missing + extra), 'missing' (only missing), 'extra' (only extra). Use after build to verify all required packages installed.",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "action": {"type": "string", "enum": ["diff", "missing", "extra"], "description": "Comparison mode", "default": "diff"},
+                    "build_conf_path": {"type": "string", "description": "Path to build.conf (default: /etc/build.conf)", "default": "/etc/build.conf"}
+                }
+            },
+            annotations=ToolAnnotations(readOnlyHint=True)
+        ),
+        Tool(
+            name="check_security_posture",
+            description="[SECURITY] Audit security settings after build. Actions: 'full' (all checks), 'sshd' (PermitRootLogin, PasswordAuthentication, AllowUsers), 'fail2ban' (status, jails), 'sudo' (wheel group NOPASSWD check), 'mcp' (API key, service active). Use after build to verify baseline security.",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "action": {"type": "string", "enum": ["full", "sshd", "fail2ban", "sudo", "mcp"], "description": "Audit scope", "default": "full"}
+                }
+            },
+            annotations=ToolAnnotations(readOnlyHint=True)
+        ),
+        Tool(
+            name="check_rpi_hardware",
+            description="[MONITORING] RPi5-specific hardware checks via vcgencmd. Actions: 'full' (all checks), 'eeprom' (BOOT_ORDER), 'temperature' (measure_temp + throttled status), 'frequencies' (CPU/GPU clocks), 'voltage' (core voltage), 'memory' (gpu_mem from config.txt). Use for QA after image flash.",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "action": {"type": "string", "enum": ["full", "eeprom", "temperature", "frequencies", "voltage", "memory"], "description": "Hardware check scope", "default": "full"}
+                }
+            },
+            annotations=ToolAnnotations(readOnlyHint=True)
+        ),
+        Tool(
+            name="benchmark_quick",
+            description="[MONITORING] Quick performance benchmarks after build. Actions: 'full' (all tests), 'disk' (hdparm -Tt), 'cpu' (openssl speed), 'memory' (stress-ng --vm), 'network' (curl download speed). Low priority — nice-to-have for QA.",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "action": {"type": "string", "enum": ["full", "disk", "cpu", "memory", "network"], "description": "Benchmark scope", "default": "full"}
+                }
+            },
+            annotations=ToolAnnotations(readOnlyHint=True)
+        ),
     ]
 
 
@@ -1550,6 +1652,50 @@ async def call_tool(name: str, arguments: dict[str, Any]) -> list[TextContent | 
     elif name == "generate_report":
         action = arguments.get("action", "full")
         result = await generate_report(action=action)
+        return [TextContent(type="text", text=json.dumps(result, indent=2, ensure_ascii=False))]
+
+    # ─── OS Build Testing Tools ─────────────────────────────────────────
+
+    elif name == "verify_boot_artifacts":
+        action = arguments.get("action", "check")
+        result = await verify_boot_artifacts(action=action)
+        return [TextContent(type="text", text=json.dumps(result, indent=2, ensure_ascii=False))]
+
+    elif name == "verify_service_health":
+        action = arguments.get("action", "checklist")
+        checklist = arguments.get("checklist", None)
+        result = await verify_service_health(action=action, checklist=checklist)
+        return [TextContent(type="text", text=json.dumps(result, indent=2, ensure_ascii=False))]
+
+    elif name == "verify_homectl_user":
+        action = arguments.get("action", "check")
+        result = await verify_homectl_user(action=action)
+        return [TextContent(type="text", text=json.dumps(result, indent=2, ensure_ascii=False))]
+
+    elif name == "compare_fstab":
+        action = arguments.get("action", "check")
+        result = await compare_fstab(action=action)
+        return [TextContent(type="text", text=json.dumps(result, indent=2, ensure_ascii=False))]
+
+    elif name == "compare_packages":
+        action = arguments.get("action", "diff")
+        build_conf_path = arguments.get("build_conf_path", "/etc/build.conf")
+        result = await compare_packages(action=action, build_conf_path=build_conf_path)
+        return [TextContent(type="text", text=json.dumps(result, indent=2, ensure_ascii=False))]
+
+    elif name == "check_security_posture":
+        action = arguments.get("action", "full")
+        result = await check_security_posture(action=action)
+        return [TextContent(type="text", text=json.dumps(result, indent=2, ensure_ascii=False))]
+
+    elif name == "check_rpi_hardware":
+        action = arguments.get("action", "full")
+        result = await check_rpi_hardware(action=action)
+        return [TextContent(type="text", text=json.dumps(result, indent=2, ensure_ascii=False))]
+
+    elif name == "benchmark_quick":
+        action = arguments.get("action", "full")
+        result = await benchmark_quick(action=action)
         return [TextContent(type="text", text=json.dumps(result, indent=2, ensure_ascii=False))]
 
     else:
