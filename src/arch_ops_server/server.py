@@ -71,6 +71,7 @@ from . import (
     run_system_health_check,
     # Journal functions
     manage_logs,
+    manage_journal_gateway,
     # Utils
     IS_ARCH,
     run_command,
@@ -97,6 +98,15 @@ from .build_test import (
     benchmark_quick,
 )
 
+# v0.10 — LUKS, firewall, hardware, boot config, backup, recovery, telegram
+from .luks import manage_luks
+from .firewall import manage_firewall
+from .hardware import manage_hardware
+from .boot_config import manage_boot_config
+from .backup import manage_backup
+from .recovery import manage_recovery
+from .telegram import manage_telegram_unlock
+
 # Configure logging
 logger = logging.getLogger(__name__)
 
@@ -108,29 +118,35 @@ server = Server("arch-ops-server")
 # HELPER FUNCTIONS
 # ============================================================================
 
+
 def create_platform_error_message(tool_name: str, current_platform: str = None) -> str:
     """
     Create an informative error message with recovery hints for platform-specific tools.
-    
+
     Args:
         tool_name: Name of the tool that requires Arch Linux
         current_platform: Current platform/OS (auto-detected if not provided)
-    
+
     Returns:
         Formatted error message with recovery suggestions
     """
     import platform
-    
+
     if current_platform is None:
         try:
             if IS_ARCH:
                 current_platform = "Arch Linux"
             else:
                 import distro
-                current_platform = f"{distro.name()} {distro.version()}" if distro.name() else platform.system()
+
+                current_platform = (
+                    f"{distro.name()} {distro.version()}"
+                    if distro.name()
+                    else platform.system()
+                )
         except:
             current_platform = platform.system()
-    
+
     error_msg = f"""Error: '{tool_name}' requires Arch Linux
 
 Current system: {current_platform}
@@ -155,7 +171,7 @@ Alternative actions:
    - Check latest Arch news before installing: get_latest_news
 
 Note: Tools marked with [DISCOVERY], [SECURITY], and news-related tools work on any system."""
-    
+
     return error_msg
 
 
@@ -186,20 +202,20 @@ def create_standard_output_schema(data_schema: dict, description: str = "") -> d
             "status": {
                 "type": "string",
                 "enum": ["success", "error"],
-                "description": "Operation status"
+                "description": "Operation status",
             },
             "data": data_schema,
             "error": {
                 "type": "string",
-                "description": "Error message (only present if status is error)"
+                "description": "Error message (only present if status is error)",
             },
             "wiki_suggestions": {
                 "type": "array",
                 "description": "Related Wiki articles for troubleshooting (only present on error)",
-                "items": {"type": "string"}
-            }
+                "items": {"type": "string"},
+            },
         },
-        "required": ["status"]
+        "required": ["status"],
     }
 
     if description:
@@ -212,11 +228,12 @@ def create_standard_output_schema(data_schema: dict, description: str = "") -> d
 # RESOURCES
 # ============================================================================
 
+
 @server.list_resources()
 async def list_resources() -> list[Resource]:
     """
     List available resource URI schemes.
-    
+
     Returns:
         List of Resource objects describing available URI schemes
     """
@@ -226,155 +243,155 @@ async def list_resources() -> list[Resource]:
             uri="archwiki://Installation_guide",
             name="Arch Wiki - Installation Guide",
             mimeType="text/markdown",
-            description="Example: Fetch Arch Wiki pages as Markdown"
+            description="Example: Fetch Arch Wiki pages as Markdown",
         ),
         # AUR resources
         Resource(
             uri="aur://yay/pkgbuild",
             name="AUR - yay PKGBUILD",
             mimeType="text/x-script.shell",
-            description="Example: Fetch AUR package PKGBUILD files"
+            description="Example: Fetch AUR package PKGBUILD files",
         ),
         Resource(
             uri="aur://yay/info",
             name="AUR - yay Package Info",
             mimeType="application/json",
-            description="Example: Fetch AUR package metadata (votes, maintainer, etc)"
+            description="Example: Fetch AUR package metadata (votes, maintainer, etc)",
         ),
         # Official repository resources
         Resource(
             uri="archrepo://vim",
             name="Official Repository - Package Info",
             mimeType="application/json",
-            description="Example: Fetch official repository package details"
+            description="Example: Fetch official repository package details",
         ),
         # Pacman resources
         Resource(
             uri="pacman://installed",
             name="System - Installed Packages",
             mimeType="application/json",
-            description="List installed packages on Arch Linux system"
+            description="List installed packages on Arch Linux system",
         ),
         Resource(
             uri="pacman://orphans",
             name="System - Orphan Packages",
             mimeType="application/json",
-            description="List orphaned packages (dependencies no longer required)"
+            description="List orphaned packages (dependencies no longer required)",
         ),
         Resource(
             uri="pacman://explicit",
             name="System - Explicitly Installed Packages",
             mimeType="application/json",
-            description="List packages explicitly installed by user"
+            description="List packages explicitly installed by user",
         ),
         Resource(
             uri="pacman://groups",
             name="System - Package Groups",
             mimeType="application/json",
-            description="List all available package groups"
+            description="List all available package groups",
         ),
         Resource(
             uri="pacman://group/base-devel",
             name="System - Packages in base-devel Group",
             mimeType="application/json",
-            description="Example: List packages in a specific group"
+            description="Example: List packages in a specific group",
         ),
         # System resources
         Resource(
             uri="system://info",
             name="System - System Information",
             mimeType="application/json",
-            description="Get system information (kernel, arch, memory, uptime)"
+            description="Get system information (kernel, arch, memory, uptime)",
         ),
         Resource(
             uri="system://disk",
             name="System - Disk Space",
             mimeType="application/json",
-            description="Check disk space usage for critical paths"
+            description="Check disk space usage for critical paths",
         ),
         Resource(
             uri="system://services/failed",
             name="System - Failed Services",
             mimeType="application/json",
-            description="List failed systemd services"
+            description="List failed systemd services",
         ),
         Resource(
             uri="system://logs/boot",
             name="System - Boot Logs",
             mimeType="text/plain",
-            description="Get recent boot logs from journalctl"
+            description="Get recent boot logs from journalctl",
         ),
         # News resources
         Resource(
             uri="archnews://latest",
             name="Arch News - Latest",
             mimeType="application/json",
-            description="Get latest Arch Linux news announcements"
+            description="Get latest Arch Linux news announcements",
         ),
         Resource(
             uri="archnews://critical",
             name="Arch News - Critical",
             mimeType="application/json",
-            description="Get critical Arch Linux news requiring manual intervention"
+            description="Get critical Arch Linux news requiring manual intervention",
         ),
         Resource(
             uri="archnews://since-update",
             name="Arch News - Since Last Update",
             mimeType="application/json",
-            description="Get news posted since last pacman update"
+            description="Get news posted since last pacman update",
         ),
         # Transaction log resources
         Resource(
             uri="pacman://log/recent",
             name="Pacman Log - Recent Transactions",
             mimeType="application/json",
-            description="Get recent package transactions from pacman log"
+            description="Get recent package transactions from pacman log",
         ),
         Resource(
             uri="pacman://log/failed",
             name="Pacman Log - Failed Transactions",
             mimeType="application/json",
-            description="Get failed package transactions"
+            description="Get failed package transactions",
         ),
         # Mirror resources
         Resource(
             uri="mirrors://active",
             name="Mirrors - Active Configuration",
             mimeType="application/json",
-            description="Get currently configured mirrors"
+            description="Get currently configured mirrors",
         ),
         Resource(
             uri="mirrors://health",
             name="Mirrors - Health Status",
             mimeType="application/json",
-            description="Get mirror configuration health assessment"
+            description="Get mirror configuration health assessment",
         ),
         # Config resources
         Resource(
             uri="config://pacman",
             name="Config - pacman.conf",
             mimeType="application/json",
-            description="Get parsed pacman.conf configuration"
+            description="Get parsed pacman.conf configuration",
         ),
         Resource(
             uri="config://makepkg",
             name="Config - makepkg.conf",
             mimeType="application/json",
-            description="Get parsed makepkg.conf configuration"
+            description="Get parsed makepkg.conf configuration",
         ),
         # Database resources
         Resource(
             uri="pacman://database/freshness",
             name="Pacman - Database Freshness",
             mimeType="application/json",
-            description="Check when package databases were last synchronized"
+            description="Check when package databases were last synchronized",
         ),
         # System health resources
         Resource(
             uri="system://health",
             name="System - Health Check",
             mimeType="application/json",
-            description="Comprehensive system health check report"
+            description="Comprehensive system health check report",
         ),
     ]
 
@@ -411,35 +428,39 @@ async def read_resource(uri: str) -> str:
     # Convert to string if it's a Pydantic AnyUrl object
     uri_str = str(uri)
     logger.info(f"Reading resource: {uri_str}")
-    
+
     parsed = urlparse(uri_str)
     scheme = parsed.scheme
-    
+
     if scheme == "archwiki":
         # Extract page title from path (remove leading /)
-        page_title = parsed.path.lstrip('/')
-        
+        page_title = parsed.path.lstrip("/")
+
         if not page_title:
             # If only hostname provided, use it as title
             page_title = parsed.netloc
-        
+
         if not page_title:
-            raise ValueError("Wiki page title required in URI (e.g., archwiki://Installation_guide)")
-        
+            raise ValueError(
+                "Wiki page title required in URI (e.g., archwiki://Installation_guide)"
+            )
+
         # Fetch Wiki page as Markdown
         content = await get_wiki_page_as_text(page_title)
         return content
-    
+
     elif scheme == "aur":
         # Extract package name from netloc or path
-        package_name = parsed.netloc or parsed.path.lstrip('/').split('/')[0]
-        
+        package_name = parsed.netloc or parsed.path.lstrip("/").split("/")[0]
+
         if not package_name:
-            raise ValueError("AUR package name required in URI (e.g., aur://yay/pkgbuild)")
-        
+            raise ValueError(
+                "AUR package name required in URI (e.g., aur://yay/pkgbuild)"
+            )
+
         # Determine what to fetch based on path
-        path_parts = parsed.path.lstrip('/').split('/')
-        
+        path_parts = parsed.path.lstrip("/").split("/")
+
         if len(path_parts) > 1 and path_parts[1] == "pkgbuild":
             # Fetch PKGBUILD
             pkgbuild_content = await get_pkgbuild(package_name)
@@ -452,23 +473,23 @@ async def read_resource(uri: str) -> str:
             # Default to package info
             package_info = await get_aur_info(package_name)
             return json.dumps(package_info, indent=2)
-    
+
     elif scheme == "archrepo":
         # Extract package name from netloc or path
-        package_name = parsed.netloc or parsed.path.lstrip('/')
-        
+        package_name = parsed.netloc or parsed.path.lstrip("/")
+
         if not package_name:
             raise ValueError("Package name required in URI (e.g., archrepo://vim)")
-        
+
         # Fetch official package info
         package_info = await get_official_package_info(package_name)
         return json.dumps(package_info, indent=2)
-    
+
     elif scheme == "pacman":
         if not IS_ARCH:
             raise ValueError(create_platform_error_message("pacman:// resources"))
 
-        resource_path = parsed.netloc or parsed.path.lstrip('/')
+        resource_path = parsed.netloc or parsed.path.lstrip("/")
 
         if resource_path == "installed":
             # Get installed packages
@@ -478,9 +499,9 @@ async def read_resource(uri: str) -> str:
 
             # Parse pacman output
             packages = []
-            for line in stdout.strip().split('\n'):
+            for line in stdout.strip().split("\n"):
                 if line.strip():
-                    name, version = line.strip().rsplit(' ', 1)
+                    name, version = line.strip().rsplit(" ", 1)
                     packages.append({"name": name, "version": version})
 
             return json.dumps(packages, indent=2)
@@ -502,16 +523,20 @@ async def read_resource(uri: str) -> str:
 
         elif resource_path.startswith("group/"):
             # Get packages in specific group
-            group_name = resource_path.split('/', 1)[1]
+            group_name = resource_path.split("/", 1)[1]
             if not group_name:
-                raise ValueError("Group name required (e.g., pacman://group/base-devel)")
-            result = await manage_groups(action="list_packages_in_group", group_name=group_name)
+                raise ValueError(
+                    "Group name required (e.g., pacman://group/base-devel)"
+                )
+            result = await manage_groups(
+                action="list_packages_in_group", group_name=group_name
+            )
             return json.dumps(result, indent=2)
 
         elif resource_path.startswith("log/"):
             # Transaction log resources
-            log_type = resource_path.split('/', 1)[1] if '/' in resource_path else ""
-            
+            log_type = resource_path.split("/", 1)[1] if "/" in resource_path else ""
+
             if log_type == "recent":
                 result = await get_transaction_history()
                 return json.dumps(result, indent=2)
@@ -530,7 +555,7 @@ async def read_resource(uri: str) -> str:
             raise ValueError(f"Unsupported pacman resource: {resource_path}")
 
     elif scheme == "system":
-        resource_path = parsed.netloc or parsed.path.lstrip('/')
+        resource_path = parsed.netloc or parsed.path.lstrip("/")
 
         if resource_path == "info":
             # Get system information
@@ -565,7 +590,7 @@ async def read_resource(uri: str) -> str:
             raise ValueError(f"Unsupported system resource: {resource_path}")
 
     elif scheme == "archnews":
-        resource_path = parsed.netloc or parsed.path.lstrip('/')
+        resource_path = parsed.netloc or parsed.path.lstrip("/")
 
         if resource_path == "latest":
             # Get latest news
@@ -589,7 +614,7 @@ async def read_resource(uri: str) -> str:
         if not IS_ARCH:
             raise ValueError(create_platform_error_message("mirrors:// resources"))
 
-        resource_path = parsed.netloc or parsed.path.lstrip('/')
+        resource_path = parsed.netloc or parsed.path.lstrip("/")
 
         if resource_path == "active":
             # Get active mirrors
@@ -608,7 +633,7 @@ async def read_resource(uri: str) -> str:
         if not IS_ARCH:
             raise ValueError(create_platform_error_message("config:// resources"))
 
-        resource_path = parsed.netloc or parsed.path.lstrip('/')
+        resource_path = parsed.netloc or parsed.path.lstrip("/")
 
         if resource_path == "pacman":
             # Get pacman.conf
@@ -631,11 +656,12 @@ async def read_resource(uri: str) -> str:
 # TOOLS
 # ============================================================================
 
+
 @server.list_tools()
 async def list_tools() -> list[Tool]:
     """
     List available tools for Arch Linux operations.
-    
+
     Returns:
         List of Tool objects describing available operations
     """
@@ -649,19 +675,18 @@ async def list_tools() -> list[Tool]:
                 "properties": {
                     "query": {
                         "type": "string",
-                        "description": "Search query (keywords or phrase)"
+                        "description": "Search query (keywords or phrase)",
                     },
                     "limit": {
                         "type": "integer",
                         "description": "Maximum number of results (default: 10)",
-                        "default": 10
-                    }
+                        "default": 10,
+                    },
                 },
-                "required": ["query"]
+                "required": ["query"],
             },
-            annotations=ToolAnnotations(readOnlyHint=True)
+            annotations=ToolAnnotations(readOnlyHint=True),
         ),
-        
         # AUR tools
         Tool(
             name="search_aur",
@@ -669,27 +694,23 @@ async def list_tools() -> list[Tool]:
             inputSchema={
                 "type": "object",
                 "properties": {
-                    "query": {
-                        "type": "string",
-                        "description": "Package search query"
-                    },
+                    "query": {"type": "string", "description": "Package search query"},
                     "limit": {
                         "type": "integer",
                         "description": "Maximum number of results (default: 20)",
-                        "default": 20
+                        "default": 20,
                     },
                     "sort_by": {
                         "type": "string",
                         "description": "Sort method: 'relevance' (default), 'votes', 'popularity', or 'modified'",
                         "enum": ["relevance", "votes", "popularity", "modified"],
-                        "default": "relevance"
-                    }
+                        "default": "relevance",
+                    },
                 },
-                "required": ["query"]
+                "required": ["query"],
             },
-            annotations=ToolAnnotations(readOnlyHint=True)
+            annotations=ToolAnnotations(readOnlyHint=True),
         ),
-        
         Tool(
             name="get_official_package_info",
             description="[DISCOVERY] Get information about an official Arch repository package (Core, Extra, etc.). Uses local pacman if available, otherwise queries archlinux.org API. Always prefer official packages over AUR when available. Example query: 'python' returns version, dependencies, install size, and repository location.",
@@ -698,24 +719,19 @@ async def list_tools() -> list[Tool]:
                 "properties": {
                     "package_name": {
                         "type": "string",
-                        "description": "Exact package name"
+                        "description": "Exact package name",
                     }
                 },
-                "required": ["package_name"]
+                "required": ["package_name"],
             },
-            annotations=ToolAnnotations(readOnlyHint=True)
+            annotations=ToolAnnotations(readOnlyHint=True),
         ),
-        
         Tool(
             name="check_updates_dry_run",
             description="[LIFECYCLE] Check for available system updates without applying them. Only works on Arch Linux systems. Requires pacman-contrib package. Safe read-only operation that shows pending updates. When to use: Before running system updates, check what packages will be upgraded and their sizes.",
-            inputSchema={
-                "type": "object",
-                "properties": {}
-            },
-            annotations=ToolAnnotations(readOnlyHint=True)
+            inputSchema={"type": "object", "properties": {}},
+            annotations=ToolAnnotations(readOnlyHint=True),
         ),
-        
         Tool(
             name="install_package_secure",
             description="[LIFECYCLE] Install a package with comprehensive security checks. Workflow: 1. Check official repos first (safer) 2. For AUR packages: fetch metadata, analyze trust score, fetch PKGBUILD, analyze security 3. Block installation if critical security issues found 4. Check for AUR helper (paru > yay) 5. Install with --noconfirm if all checks pass. Only works on Arch Linux. Requires sudo access and paru/yay for AUR packages.",
@@ -724,43 +740,41 @@ async def list_tools() -> list[Tool]:
                 "properties": {
                     "package_name": {
                         "type": "string",
-                        "description": "Name of package to install (checks official repos first, then AUR)"
+                        "description": "Name of package to install (checks official repos first, then AUR)",
                     }
                 },
-                "required": ["package_name"]
+                "required": ["package_name"],
             },
-            annotations=ToolAnnotations(destructiveHint=True)
+            annotations=ToolAnnotations(destructiveHint=True),
         ),
-        
-         Tool(
-             name="audit_package_security",
-             description="[SECURITY] Comprehensive security audit for AUR packages. Actions: pkgbuild_analysis (scan PKGBUILD for 50+ red flags), metadata_risk (evaluate trustworthiness via votes/maintainer/age). Examples: audit_package_security(action='pkgbuild_analysis', pkgbuild_content='...'), audit_package_security(action='metadata_risk', package_name='yay'). ⚠️ Always audit AUR packages before installing.",
-             inputSchema={
-                 "type": "object",
-                 "properties": {
-                     "action": {
-                         "type": "string",
-                         "enum": ["pkgbuild_analysis", "metadata_risk"],
-                         "description": "Type of security audit"
-                     },
-                     "pkgbuild_content": {
-                         "type": "string",
-                         "description": "PKGBUILD content for analysis"
-                     },
-                     "package_name": {
-                         "type": "string",
-                         "description": "Package name for metadata analysis"
-                     },
-                     "package_info": {
-                         "type": "object",
-                         "description": "Pre-fetched package metadata"
-                     }
-                 },
-                 "required": ["action"]
-             },
-             annotations=ToolAnnotations(readOnlyHint=True)
-         ),
-
+        Tool(
+            name="audit_package_security",
+            description="[SECURITY] Comprehensive security audit for AUR packages. Actions: pkgbuild_analysis (scan PKGBUILD for 50+ red flags), metadata_risk (evaluate trustworthiness via votes/maintainer/age). Examples: audit_package_security(action='pkgbuild_analysis', pkgbuild_content='...'), audit_package_security(action='metadata_risk', package_name='yay'). ⚠️ Always audit AUR packages before installing.",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "action": {
+                        "type": "string",
+                        "enum": ["pkgbuild_analysis", "metadata_risk"],
+                        "description": "Type of security audit",
+                    },
+                    "pkgbuild_content": {
+                        "type": "string",
+                        "description": "PKGBUILD content for analysis",
+                    },
+                    "package_name": {
+                        "type": "string",
+                        "description": "Package name for metadata analysis",
+                    },
+                    "package_info": {
+                        "type": "object",
+                        "description": "Pre-fetched package metadata",
+                    },
+                },
+                "required": ["action"],
+            },
+            annotations=ToolAnnotations(readOnlyHint=True),
+        ),
         # Package Removal
         Tool(
             name="remove_packages",
@@ -771,26 +785,25 @@ async def list_tools() -> list[Tool]:
                     "packages": {
                         "oneOf": [
                             {"type": "string"},
-                            {"type": "array", "items": {"type": "string"}}
+                            {"type": "array", "items": {"type": "string"}},
                         ],
-                        "description": "Package name (string) or list of package names (array) to remove"
+                        "description": "Package name (string) or list of package names (array) to remove",
                     },
                     "remove_dependencies": {
                         "type": "boolean",
                         "description": "Remove packages and their dependencies (pacman -Rs). Default: false",
-                        "default": False
+                        "default": False,
                     },
                     "force": {
                         "type": "boolean",
                         "description": "Force removal ignoring dependencies (pacman -Rdd). Use with caution! Default: false",
-                        "default": False
-                    }
+                        "default": False,
+                    },
                 },
-                "required": ["packages"]
+                "required": ["packages"],
             },
-            annotations=ToolAnnotations(destructiveHint=True)
+            annotations=ToolAnnotations(destructiveHint=True),
         ),
-
         # Orphan Package Management
         Tool(
             name="manage_orphans",
@@ -801,24 +814,25 @@ async def list_tools() -> list[Tool]:
                     "action": {
                         "type": "string",
                         "enum": ["list", "remove"],
-                        "description": "Action to perform: 'list' (list orphaned packages) or 'remove' (remove orphaned packages)"
+                        "description": "Action to perform: 'list' (list orphaned packages) or 'remove' (remove orphaned packages)",
                     },
                     "dry_run": {
                         "type": "boolean",
                         "description": "Preview what would be removed without actually removing (only for remove action). Default: true",
-                        "default": True
+                        "default": True,
                     },
                     "exclude": {
                         "type": "array",
                         "items": {"type": "string"},
-                        "description": "List of package names to exclude from removal (only for remove action)"
-                    }
+                        "description": "List of package names to exclude from removal (only for remove action)",
+                    },
                 },
-                "required": ["action"]
+                "required": ["action"],
             },
-            annotations=ToolAnnotations(readOnlyHint=False, destructiveHint=False)  # Mixed: list is read-only, remove is destructive
+            annotations=ToolAnnotations(
+                readOnlyHint=False, destructiveHint=False
+            ),  # Mixed: list is read-only, remove is destructive
         ),
-
         # File Ownership Query (Consolidated)
         Tool(
             name="query_file_ownership",
@@ -828,24 +842,26 @@ async def list_tools() -> list[Tool]:
                 "properties": {
                     "query": {
                         "type": "string",
-                        "description": "Query string: file path for file_to_package mode, package name for package_to_files mode, or filename pattern for filename_search mode"
+                        "description": "Query string: file path for file_to_package mode, package name for package_to_files mode, or filename pattern for filename_search mode",
                     },
                     "mode": {
                         "type": "string",
-                        "enum": ["file_to_package", "package_to_files", "filename_search"],
-                        "description": "Query mode: 'file_to_package' (find package owner), 'package_to_files' (list package files), or 'filename_search' (search across packages)"
+                        "enum": [
+                            "file_to_package",
+                            "package_to_files",
+                            "filename_search",
+                        ],
+                        "description": "Query mode: 'file_to_package' (find package owner), 'package_to_files' (list package files), or 'filename_search' (search across packages)",
                     },
                     "filter_pattern": {
                         "type": "string",
-                        "description": "Optional regex pattern to filter files (only used in package_to_files mode, e.g., '*.conf' or '/etc/')"
-                    }
+                        "description": "Optional regex pattern to filter files (only used in package_to_files mode, e.g., '*.conf' or '/etc/')",
+                    },
                 },
-                "required": ["query", "mode"]
+                "required": ["query", "mode"],
             },
-            annotations=ToolAnnotations(readOnlyHint=True)
+            annotations=ToolAnnotations(readOnlyHint=True),
         ),
-
-
         # Package Verification
         Tool(
             name="verify_package_integrity",
@@ -855,19 +871,18 @@ async def list_tools() -> list[Tool]:
                 "properties": {
                     "package_name": {
                         "type": "string",
-                        "description": "Name of the package to verify"
+                        "description": "Name of the package to verify",
                     },
                     "thorough": {
                         "type": "boolean",
                         "description": "Perform thorough check including file attributes. Default: false",
-                        "default": False
-                    }
+                        "default": False,
+                    },
                 },
-                "required": ["package_name"]
+                "required": ["package_name"],
             },
-            annotations=ToolAnnotations(readOnlyHint=True)
+            annotations=ToolAnnotations(readOnlyHint=True),
         ),
-
         # Package Groups
         Tool(
             name="manage_groups",
@@ -878,18 +893,17 @@ async def list_tools() -> list[Tool]:
                     "action": {
                         "type": "string",
                         "enum": ["list_groups", "list_packages_in_group"],
-                        "description": "Operation to perform"
+                        "description": "Operation to perform",
                     },
                     "group_name": {
                         "type": "string",
-                        "description": "Group name (required for list_packages_in_group)"
-                    }
+                        "description": "Group name (required for list_packages_in_group)",
+                    },
                 },
-                "required": ["action"]
+                "required": ["action"],
             },
-            annotations=ToolAnnotations(readOnlyHint=True)
+            annotations=ToolAnnotations(readOnlyHint=True),
         ),
-
         # Install Reason Management
         Tool(
             name="manage_install_reason",
@@ -900,29 +914,26 @@ async def list_tools() -> list[Tool]:
                     "action": {
                         "type": "string",
                         "enum": ["list", "mark_explicit", "mark_dependency"],
-                        "description": "Action to perform: 'list' (list explicit packages), 'mark_explicit' (mark as user-installed), or 'mark_dependency' (mark as auto-removable)"
+                        "description": "Action to perform: 'list' (list explicit packages), 'mark_explicit' (mark as user-installed), or 'mark_dependency' (mark as auto-removable)",
                     },
                     "package_name": {
                         "type": "string",
-                        "description": "Package name (required for mark_explicit and mark_dependency actions)"
-                    }
+                        "description": "Package name (required for mark_explicit and mark_dependency actions)",
+                    },
                 },
-                "required": ["action"]
+                "required": ["action"],
             },
-            annotations=ToolAnnotations(readOnlyHint=False, destructiveHint=False)  # Mixed: list is read-only, marking is destructive
+            annotations=ToolAnnotations(
+                readOnlyHint=False, destructiveHint=False
+            ),  # Mixed: list is read-only, marking is destructive
         ),
-
         # System Diagnostic Tools
         Tool(
             name="get_system_info",
             description="[MONITORING] Get comprehensive system information including kernel version, architecture, hostname, uptime, and memory statistics. Works on any system. Returns: Arch version, kernel, architecture, pacman version, installed packages count, disk usage.",
-            inputSchema={
-                "type": "object",
-                "properties": {}
-            },
-            annotations=ToolAnnotations(readOnlyHint=True)
+            inputSchema={"type": "object", "properties": {}},
+            annotations=ToolAnnotations(readOnlyHint=True),
         ),
-
         Tool(
             name="analyze_storage",
             description="[MONITORING] Unified storage analysis tool. Actions: disk_usage (check disk space for critical paths), cache_stats (analyze pacman package cache). Works on any system for disk_usage, Arch only for cache_stats.",
@@ -932,14 +943,13 @@ async def list_tools() -> list[Tool]:
                     "action": {
                         "type": "string",
                         "enum": ["disk_usage", "cache_stats"],
-                        "description": "Analysis type to perform"
+                        "description": "Analysis type to perform",
                     }
                 },
-                "required": ["action"]
+                "required": ["action"],
             },
-            annotations=ToolAnnotations(readOnlyHint=True)
+            annotations=ToolAnnotations(readOnlyHint=True),
         ),
-
         Tool(
             name="diagnose_system",
             description="[MONITORING] Unified system diagnostics for systemd-based systems. Actions: failed_services (check for failed systemd services), boot_logs (retrieve recent boot logs). Works on systemd-based systems only.",
@@ -949,19 +959,18 @@ async def list_tools() -> list[Tool]:
                     "action": {
                         "type": "string",
                         "enum": ["failed_services", "boot_logs"],
-                        "description": "Diagnostic action to perform"
+                        "description": "Diagnostic action to perform",
                     },
                     "lines": {
                         "type": "integer",
                         "description": "Number of log lines (for boot_logs). Default: 100",
-                        "default": 100
-                    }
+                        "default": 100,
+                    },
                 },
-                "required": ["action"]
+                "required": ["action"],
             },
-            annotations=ToolAnnotations(readOnlyHint=True)
+            annotations=ToolAnnotations(readOnlyHint=True),
         ),
-
         # Journal Tools
         Tool(
             name="manage_logs",
@@ -971,40 +980,48 @@ async def list_tools() -> list[Tool]:
                 "properties": {
                     "unit": {
                         "type": "string",
-                        "description": "Filter by systemd unit name (e.g. 'sshd', 'systemd-networkd', 'kernel')"
+                        "description": "Filter by systemd unit name (e.g. 'sshd', 'systemd-networkd', 'kernel')",
                     },
                     "priority": {
                         "type": "string",
-                        "enum": ["emerg", "alert", "crit", "err", "warning", "notice", "info", "debug"],
-                        "description": "Log level filter (e.g. 'err' for errors and above)"
+                        "enum": [
+                            "emerg",
+                            "alert",
+                            "crit",
+                            "err",
+                            "warning",
+                            "notice",
+                            "info",
+                            "debug",
+                        ],
+                        "description": "Log level filter (e.g. 'err' for errors and above)",
                     },
                     "lines": {
                         "type": "integer",
                         "description": "Number of log lines to return. Default: 50",
-                        "default": 50
+                        "default": 50,
                     },
                     "since": {
                         "type": "string",
-                        "description": "Start time for log query (e.g. '5 minutes ago', '2 hours ago', 'yesterday', '2026-05-27 10:00:00')"
+                        "description": "Start time for log query (e.g. '5 minutes ago', '2 hours ago', 'yesterday', '2026-05-27 10:00:00')",
                     },
                     "until": {
                         "type": "string",
-                        "description": "End time for log query (e.g. 'now', '10 minutes ago')"
+                        "description": "End time for log query (e.g. 'now', '10 minutes ago')",
                     },
                     "grep": {
                         "type": "string",
-                        "description": "Keyword filter to search within log messages (case-insensitive)"
+                        "description": "Keyword filter to search within log messages (case-insensitive)",
                     },
                     "boot": {
                         "type": "boolean",
                         "description": "If True, show only current boot logs. Default: True",
-                        "default": True
-                    }
-                }
+                        "default": True,
+                    },
+                },
             },
-            annotations=ToolAnnotations(readOnlyHint=True)
+            annotations=ToolAnnotations(readOnlyHint=True),
         ),
-
         # News Tools
         Tool(
             name="fetch_news",
@@ -1015,23 +1032,22 @@ async def list_tools() -> list[Tool]:
                     "action": {
                         "type": "string",
                         "enum": ["latest", "critical", "since_update"],
-                        "description": "Type of news query"
+                        "description": "Type of news query",
                     },
                     "limit": {
                         "type": "integer",
                         "description": "Maximum news items (for latest/critical). Default: 10",
-                        "default": 10
+                        "default": 10,
                     },
                     "since_date": {
                         "type": "string",
-                        "description": "ISO date to filter from (for latest action)"
-                    }
+                        "description": "ISO date to filter from (for latest action)",
+                    },
                 },
-                "required": ["action"]
+                "required": ["action"],
             },
-            annotations=ToolAnnotations(readOnlyHint=True)
+            annotations=ToolAnnotations(readOnlyHint=True),
         ),
-
         # Transaction Log Tools
         # Consolidated Transaction History Tool
         Tool(
@@ -1043,23 +1059,22 @@ async def list_tools() -> list[Tool]:
                     "query_type": {
                         "type": "string",
                         "enum": ["all", "package", "failures", "sync"],
-                        "description": "Type of query: 'all' (recent transactions), 'package' (package history), 'failures' (failed transactions), or 'sync' (database sync history)"
+                        "description": "Type of query: 'all' (recent transactions), 'package' (package history), 'failures' (failed transactions), or 'sync' (database sync history)",
                     },
                     "package_name": {
                         "type": "string",
-                        "description": "Package name (required for query_type='package')"
+                        "description": "Package name (required for query_type='package')",
                     },
                     "limit": {
                         "type": "integer",
                         "description": "Maximum number of results to return (default 50)",
-                        "default": 50
-                    }
+                        "default": 50,
+                    },
                 },
-                "required": ["query_type"]
+                "required": ["query_type"],
             },
-            annotations=ToolAnnotations(readOnlyHint=True)
+            annotations=ToolAnnotations(readOnlyHint=True),
         ),
-
         # Mirror Management Tools
         Tool(
             name="optimize_mirrors",
@@ -1070,32 +1085,31 @@ async def list_tools() -> list[Tool]:
                     "action": {
                         "type": "string",
                         "enum": ["status", "test", "suggest", "health"],
-                        "description": "Operation to perform: 'status' (list mirrors), 'test' (test speeds), 'suggest' (get recommendations), 'health' (full check)"
+                        "description": "Operation to perform: 'status' (list mirrors), 'test' (test speeds), 'suggest' (get recommendations), 'health' (full check)",
                     },
                     "country": {
                         "type": "string",
-                        "description": "Optional country code for suggestions (e.g., 'US', 'DE') - action='suggest' only"
+                        "description": "Optional country code for suggestions (e.g., 'US', 'DE') - action='suggest' only",
                     },
                     "mirror_url": {
                         "type": "string",
-                        "description": "Specific mirror URL to test - action='test' only"
+                        "description": "Specific mirror URL to test - action='test' only",
                     },
                     "limit": {
                         "type": "integer",
                         "description": "Number of mirrors for suggestions (default 10)",
-                        "default": 10
+                        "default": 10,
                     },
                     "auto_test": {
                         "type": "boolean",
                         "description": "If true, test mirrors after listing - action='status' only",
-                        "default": False
-                    }
+                        "default": False,
+                    },
                 },
-                "required": ["action"]
+                "required": ["action"],
             },
-            annotations=ToolAnnotations(readOnlyHint=True)
+            annotations=ToolAnnotations(readOnlyHint=True),
         ),
-
         # Configuration Tools
         Tool(
             name="analyze_pacman_conf",
@@ -1107,43 +1121,30 @@ async def list_tools() -> list[Tool]:
                         "type": "string",
                         "enum": ["full", "ignored_packages", "parallel_downloads"],
                         "description": "What to analyze: 'full' (all settings), 'ignored_packages' (only ignored packages), 'parallel_downloads' (only parallel downloads setting)",
-                        "default": "full"
+                        "default": "full",
                     }
-                }
+                },
             },
-            annotations=ToolAnnotations(readOnlyHint=True)
+            annotations=ToolAnnotations(readOnlyHint=True),
         ),
-
         Tool(
             name="analyze_makepkg_conf",
             description="[CONFIG] Parse and analyze makepkg.conf. Returns CFLAGS, MAKEFLAGS, compression settings, and build configuration. Only works on Arch Linux. Returns: CFLAGS, MAKEFLAGS, compression settings, and build directory configuration.",
-            inputSchema={
-                "type": "object",
-                "properties": {}
-            },
-            annotations=ToolAnnotations(readOnlyHint=True)
+            inputSchema={"type": "object", "properties": {}},
+            annotations=ToolAnnotations(readOnlyHint=True),
         ),
-
         Tool(
             name="check_database_freshness",
             description="[MAINTENANCE] Check when package databases were last synchronized. Warns if databases are stale (> 24 hours). Only works on Arch Linux. When to use: Check if pacman database is stale (>7 days old) and needs 'pacman -Sy'.",
-            inputSchema={
-                "type": "object",
-                "properties": {}
-            },
-            annotations=ToolAnnotations(readOnlyHint=True)
+            inputSchema={"type": "object", "properties": {}},
+            annotations=ToolAnnotations(readOnlyHint=True),
         ),
-        
         Tool(
             name="run_system_health_check",
             description="[MONITORING] Run a comprehensive system health check. Integrates multiple diagnostics to provide a complete overview of system status, including disk space, failed services, updates, orphan packages, and more. Only works on Arch Linux. Comprehensive check: Updates available, disk space, failed services, database freshness, orphans, and critical news.",
-            inputSchema={
-                "type": "object",
-                "properties": {}
-            },
-            annotations=ToolAnnotations(readOnlyHint=True)
+            inputSchema={"type": "object", "properties": {}},
+            annotations=ToolAnnotations(readOnlyHint=True),
         ),
-
         # BTRFS Tools
         Tool(
             name="analyze_btrfs",
@@ -1153,23 +1154,35 @@ async def list_tools() -> list[Tool]:
                 "properties": {
                     "action": {
                         "type": "string",
-                        "enum": ["filesystem_info", "filesystem_df", "filesystem_usage", "subvolumes", "subvolume_info", "device_stats", "device_usage", "properties", "scrub_status", "snapshots", "snapper_configs"],
-                        "description": "Analysis action to perform"
+                        "enum": [
+                            "filesystem_info",
+                            "filesystem_df",
+                            "filesystem_usage",
+                            "subvolumes",
+                            "subvolume_info",
+                            "device_stats",
+                            "device_usage",
+                            "properties",
+                            "scrub_status",
+                            "snapshots",
+                            "snapper_configs",
+                        ],
+                        "description": "Analysis action to perform",
                     },
                     "path": {
                         "type": "string",
                         "description": "BTRFS mount path (default: /)",
-                        "default": "/"
+                        "default": "/",
                     },
                     "config": {
                         "type": "string",
                         "description": "Snapper config name (default: root, for snapshots and snapper_configs actions)",
-                        "default": "root"
-                    }
+                        "default": "root",
+                    },
                 },
-                "required": ["action"]
+                "required": ["action"],
             },
-            annotations=ToolAnnotations(readOnlyHint=True)
+            annotations=ToolAnnotations(readOnlyHint=True),
         ),
         Tool(
             name="manage_btrfs_snapshots",
@@ -1180,40 +1193,40 @@ async def list_tools() -> list[Tool]:
                     "action": {
                         "type": "string",
                         "enum": ["list", "configs", "create", "delete"],
-                        "description": "Operation: 'list' (list snapshots), 'configs' (list configs), 'create' (create snapshot), 'delete' (delete snapshot)"
+                        "description": "Operation: 'list' (list snapshots), 'configs' (list configs), 'create' (create snapshot), 'delete' (delete snapshot)",
                     },
                     "description": {
                         "type": "string",
-                        "description": "Snapshot description (required for create)"
+                        "description": "Snapshot description (required for create)",
                     },
                     "snap_type": {
                         "type": "string",
                         "enum": ["single", "pre", "post"],
                         "description": "Snapshot type (default: single)",
-                        "default": "single"
+                        "default": "single",
                     },
                     "pre_number": {
                         "type": "integer",
-                        "description": "Pre-snapshot number (required for post type)"
+                        "description": "Pre-snapshot number (required for post type)",
                     },
                     "snapshot_id": {
                         "type": "integer",
-                        "description": "Snapshot ID to delete (required for delete action)"
+                        "description": "Snapshot ID to delete (required for delete action)",
                     },
                     "config": {
                         "type": "string",
                         "description": "Snapper config name (default: root)",
-                        "default": "root"
+                        "default": "root",
                     },
                     "cleanup": {
                         "type": "string",
                         "description": "Cleanup algorithm (default: number)",
-                        "default": "number"
-                    }
+                        "default": "number",
+                    },
                 },
-                "required": ["action"]
+                "required": ["action"],
             },
-            annotations=ToolAnnotations(readOnlyHint=False)
+            annotations=ToolAnnotations(readOnlyHint=False),
         ),
         Tool(
             name="manage_btrfs_scrub",
@@ -1224,22 +1237,22 @@ async def list_tools() -> list[Tool]:
                     "action": {
                         "type": "string",
                         "enum": ["status", "start", "cancel"],
-                        "description": "Scrub operation: 'status' (check progress/results), 'start' (start scrub), 'cancel' (cancel running scrub)"
+                        "description": "Scrub operation: 'status' (check progress/results), 'start' (start scrub), 'cancel' (cancel running scrub)",
                     },
                     "path": {
                         "type": "string",
                         "description": "BTRFS mount path (default: /)",
-                        "default": "/"
+                        "default": "/",
                     },
                     "background": {
                         "type": "boolean",
                         "description": "Run scrub in background (default: true)",
-                        "default": True
-                    }
+                        "default": True,
+                    },
                 },
-                "required": ["action"]
+                "required": ["action"],
             },
-            annotations=ToolAnnotations(readOnlyHint=False)
+            annotations=ToolAnnotations(readOnlyHint=False),
         ),
         Tool(
             name="manage_boot",
@@ -1250,26 +1263,26 @@ async def list_tools() -> list[Tool]:
                     "action": {
                         "type": "string",
                         "enum": ["status", "set_boot_order", "next_boot"],
-                        "description": "Action: 'status' (read boot order), 'set_boot_order' (permanent change), 'next_boot' (one-time + optional reboot)"
+                        "description": "Action: 'status' (read boot order), 'set_boot_order' (permanent change), 'next_boot' (one-time + optional reboot)",
                     },
                     "order": {
                         "type": "string",
-                        "description": "For 'set_boot_order': preset name (sd_first, nvme_first, usb_first, sd_nvme, nvme_sd, sd_only, nvme_only, usb_only) or raw hex like 0xf416"
+                        "description": "For 'set_boot_order': preset name (sd_first, nvme_first, usb_first, sd_nvme, nvme_sd, sd_only, nvme_only, usb_only) or raw hex like 0xf416",
                     },
                     "device": {
                         "type": "string",
                         "enum": ["sd", "nvme", "usb"],
-                        "description": "For 'next_boot': boot device for next boot only (sd, nvme, usb)"
+                        "description": "For 'next_boot': boot device for next boot only (sd, nvme, usb)",
                     },
                     "reboot": {
                         "type": "boolean",
                         "description": "For 'next_boot': reboot immediately after setting (default: false)",
-                        "default": False
-                    }
+                        "default": False,
+                    },
                 },
-                "required": ["action"]
+                "required": ["action"],
             },
-            annotations=ToolAnnotations(readOnlyHint=False)
+            annotations=ToolAnnotations(readOnlyHint=False),
         ),
         Tool(
             name="generate_report",
@@ -1279,13 +1292,21 @@ async def list_tools() -> list[Tool]:
                 "properties": {
                     "action": {
                         "type": "string",
-                        "enum": ["full", "system", "packages", "storage", "btrfs", "mirrors", "config"],
+                        "enum": [
+                            "full",
+                            "system",
+                            "packages",
+                            "storage",
+                            "btrfs",
+                            "mirrors",
+                            "config",
+                        ],
                         "description": "Report scope: 'full' for all sections, or a specific section",
-                        "default": "full"
+                        "default": "full",
                     }
-                }
+                },
             },
-            annotations=ToolAnnotations(readOnlyHint=True)
+            annotations=ToolAnnotations(readOnlyHint=True),
         ),
         Tool(
             name="verify_boot_artifacts",
@@ -1293,10 +1314,15 @@ async def list_tools() -> list[Tool]:
             inputSchema={
                 "type": "object",
                 "properties": {
-                    "action": {"type": "string", "enum": ["list", "check", "cmdline"], "description": "Verification mode", "default": "check"}
-                }
+                    "action": {
+                        "type": "string",
+                        "enum": ["list", "check", "cmdline"],
+                        "description": "Verification mode",
+                        "default": "check",
+                    }
+                },
             },
-            annotations=ToolAnnotations(readOnlyHint=True)
+            annotations=ToolAnnotations(readOnlyHint=True),
         ),
         Tool(
             name="verify_service_health",
@@ -1304,11 +1330,20 @@ async def list_tools() -> list[Tool]:
             inputSchema={
                 "type": "object",
                 "properties": {
-                    "action": {"type": "string", "enum": ["status", "checklist", "compare"], "description": "Health check mode", "default": "checklist"},
-                    "checklist": {"type": "array", "items": {"type": "string"}, "description": "Custom service list for compare action (e.g. ['sshd.service', 'fail2ban.service'])"}
-                }
+                    "action": {
+                        "type": "string",
+                        "enum": ["status", "checklist", "compare"],
+                        "description": "Health check mode",
+                        "default": "checklist",
+                    },
+                    "checklist": {
+                        "type": "array",
+                        "items": {"type": "string"},
+                        "description": "Custom service list for compare action (e.g. ['sshd.service', 'fail2ban.service'])",
+                    },
+                },
             },
-            annotations=ToolAnnotations(readOnlyHint=True)
+            annotations=ToolAnnotations(readOnlyHint=True),
         ),
         Tool(
             name="verify_homectl_user",
@@ -1316,10 +1351,15 @@ async def list_tools() -> list[Tool]:
             inputSchema={
                 "type": "object",
                 "properties": {
-                    "action": {"type": "string", "enum": ["status", "check"], "description": "Verification mode", "default": "check"}
-                }
+                    "action": {
+                        "type": "string",
+                        "enum": ["status", "check"],
+                        "description": "Verification mode",
+                        "default": "check",
+                    }
+                },
             },
-            annotations=ToolAnnotations(readOnlyHint=True)
+            annotations=ToolAnnotations(readOnlyHint=True),
         ),
         Tool(
             name="compare_fstab",
@@ -1327,10 +1367,15 @@ async def list_tools() -> list[Tool]:
             inputSchema={
                 "type": "object",
                 "properties": {
-                    "action": {"type": "string", "enum": ["check", "options"], "description": "Check mode: verify subvolumes or mount options", "default": "check"}
-                }
+                    "action": {
+                        "type": "string",
+                        "enum": ["check", "options"],
+                        "description": "Check mode: verify subvolumes or mount options",
+                        "default": "check",
+                    }
+                },
             },
-            annotations=ToolAnnotations(readOnlyHint=True)
+            annotations=ToolAnnotations(readOnlyHint=True),
         ),
         Tool(
             name="compare_packages",
@@ -1338,11 +1383,20 @@ async def list_tools() -> list[Tool]:
             inputSchema={
                 "type": "object",
                 "properties": {
-                    "action": {"type": "string", "enum": ["diff", "missing", "extra"], "description": "Comparison mode", "default": "diff"},
-                    "build_conf_path": {"type": "string", "description": "Path to build.conf (default: /etc/build.conf)", "default": "/etc/build.conf"}
-                }
+                    "action": {
+                        "type": "string",
+                        "enum": ["diff", "missing", "extra"],
+                        "description": "Comparison mode",
+                        "default": "diff",
+                    },
+                    "build_conf_path": {
+                        "type": "string",
+                        "description": "Path to build.conf (default: /etc/build.conf)",
+                        "default": "/etc/build.conf",
+                    },
+                },
             },
-            annotations=ToolAnnotations(readOnlyHint=True)
+            annotations=ToolAnnotations(readOnlyHint=True),
         ),
         Tool(
             name="check_security_posture",
@@ -1350,10 +1404,15 @@ async def list_tools() -> list[Tool]:
             inputSchema={
                 "type": "object",
                 "properties": {
-                    "action": {"type": "string", "enum": ["full", "sshd", "fail2ban", "sudo", "mcp"], "description": "Audit scope", "default": "full"}
-                }
+                    "action": {
+                        "type": "string",
+                        "enum": ["full", "sshd", "fail2ban", "sudo", "mcp"],
+                        "description": "Audit scope",
+                        "default": "full",
+                    }
+                },
             },
-            annotations=ToolAnnotations(readOnlyHint=True)
+            annotations=ToolAnnotations(readOnlyHint=True),
         ),
         Tool(
             name="check_rpi_hardware",
@@ -1361,10 +1420,22 @@ async def list_tools() -> list[Tool]:
             inputSchema={
                 "type": "object",
                 "properties": {
-                    "action": {"type": "string", "enum": ["full", "eeprom", "temperature", "frequencies", "voltage", "memory"], "description": "Hardware check scope", "default": "full"}
-                }
+                    "action": {
+                        "type": "string",
+                        "enum": [
+                            "full",
+                            "eeprom",
+                            "temperature",
+                            "frequencies",
+                            "voltage",
+                            "memory",
+                        ],
+                        "description": "Hardware check scope",
+                        "default": "full",
+                    }
+                },
             },
-            annotations=ToolAnnotations(readOnlyHint=True)
+            annotations=ToolAnnotations(readOnlyHint=True),
         ),
         Tool(
             name="benchmark_quick",
@@ -1372,76 +1443,348 @@ async def list_tools() -> list[Tool]:
             inputSchema={
                 "type": "object",
                 "properties": {
-                    "action": {"type": "string", "enum": ["full", "disk", "cpu", "memory", "network"], "description": "Benchmark scope", "default": "full"}
-                }
+                    "action": {
+                        "type": "string",
+                        "enum": ["full", "disk", "cpu", "memory", "network"],
+                        "description": "Benchmark scope",
+                        "default": "full",
+                    }
+                },
             },
-            annotations=ToolAnnotations(readOnlyHint=True)
+            annotations=ToolAnnotations(readOnlyHint=True),
+        ),
+        # ─── v0.10 tools ───
+        Tool(
+            name="manage_luks",
+            description="[SECURITY] Manage LUKS encryption. Actions: 'status' (luksDump + mapper status), 'change_password' (change passphrase), 'add_key' (add new key), 'remove_key' (delete key), 'is_unlocked' (check if cryptroot active).",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "action": {
+                        "type": "string",
+                        "enum": [
+                            "status",
+                            "change_password",
+                            "add_key",
+                            "remove_key",
+                            "is_unlocked",
+                        ],
+                        "description": "LUKS operation",
+                    },
+                    "device": {
+                        "type": "string",
+                        "description": "LUKS device (e.g. /dev/nvme0n1p2)",
+                    },
+                    "old_pass": {
+                        "type": "string",
+                        "description": "Current passphrase (for change_password)",
+                    },
+                    "new_pass": {
+                        "type": "string",
+                        "description": "New passphrase or key passphrase",
+                    },
+                    "key_file": {
+                        "type": "string",
+                        "description": "Path to key file (for add_key)",
+                    },
+                    "slot": {
+                        "type": "integer",
+                        "description": "Key slot number (for remove_key)",
+                    },
+                },
+                "required": ["action"],
+            },
+            annotations=ToolAnnotations(readOnlyHint=False, destructiveHint=True),
+        ),
+        Tool(
+            name="manage_firewall",
+            description="[SECURITY] Manage nftables firewall. Actions: 'list_rules' (nft list ruleset), 'add_port' (temporary port open), 'remove_port' (delete port rule), 'validate' (check config syntax), 'reload' (systemctl reload nftables).",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "action": {
+                        "type": "string",
+                        "enum": [
+                            "list_rules",
+                            "add_port",
+                            "remove_port",
+                            "validate",
+                            "reload",
+                        ],
+                        "description": "Firewall operation",
+                    },
+                    "port": {
+                        "type": "integer",
+                        "description": "Port number (for add_port/remove_port)",
+                    },
+                    "proto": {
+                        "type": "string",
+                        "default": "tcp",
+                        "description": "Protocol: tcp or udp",
+                    },
+                    "interface": {
+                        "type": "string",
+                        "description": "Network interface (optional, for add_port)",
+                    },
+                    "chain": {
+                        "type": "string",
+                        "description": "Filter chain name (optional, for list_rules)",
+                    },
+                },
+                "required": ["action"],
+            },
+            annotations=ToolAnnotations(readOnlyHint=False, destructiveHint=True),
+        ),
+        Tool(
+            name="manage_hardware",
+            description="[MONITORING] RPi5 hardware diagnostics. Actions: 'health' (temperature, throttling, frequencies, voltages via vcgencmd), 'eeprom_info' (full rpi-eeprom-config), 'eeprom_update' (check for EEPROM updates), 'nvme_info' (nvme list + smart-log), 'benchmark_disk' (fio-based disk benchmark).",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "action": {
+                        "type": "string",
+                        "enum": [
+                            "health",
+                            "eeprom_info",
+                            "eeprom_update",
+                            "nvme_info",
+                            "benchmark_disk",
+                        ],
+                        "description": "Hardware check operation",
+                    },
+                    "channel": {
+                        "type": "string",
+                        "default": "default",
+                        "description": "EEPROM update channel",
+                    },
+                    "path": {
+                        "type": "string",
+                        "default": "/",
+                        "description": "Path for disk benchmark",
+                    },
+                    "size": {
+                        "type": "string",
+                        "default": "1G",
+                        "description": "Benchmark I/O size",
+                    },
+                },
+                "required": ["action"],
+            },
+            annotations=ToolAnnotations(readOnlyHint=True),
+        ),
+        Tool(
+            name="manage_boot_config",
+            description="[CONFIG] RPi5 boot configuration inspection. Actions: 'read_config' (/boot/config.txt), 'read_cmdline' (/boot/cmdline.txt parsed), 'verify_boot' (check kernel, initramfs, dtb, config files), 'check_initramfs_hooks' (lsinitcpio for encrypt/telegram/boot-mount), 'check_boot_order' (EEPROM BOOT_ORDER).",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "action": {
+                        "type": "string",
+                        "enum": [
+                            "read_config",
+                            "read_cmdline",
+                            "verify_boot",
+                            "check_initramfs_hooks",
+                            "check_boot_order",
+                        ],
+                        "description": "Boot config operation",
+                    },
+                },
+                "required": ["action"],
+            },
+            annotations=ToolAnnotations(readOnlyHint=True),
+        ),
+        Tool(
+            name="manage_backup",
+            description="[MAINTENANCE] Manage btrbk backups. Actions: 'run' (execute btrbk, optionally dry), 'list' (backup history), 'status' (check btrbk availability + configs), 'restore_info' (restore info for a snapshot).",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "action": {
+                        "type": "string",
+                        "enum": ["run", "list", "status", "restore_info"],
+                        "description": "Backup operation",
+                    },
+                    "config": {
+                        "type": "string",
+                        "description": "Path to btrbk config file",
+                    },
+                    "dry_run": {
+                        "type": "boolean",
+                        "default": False,
+                        "description": "Dry run mode (for run action)",
+                    },
+                    "snapshot_id": {
+                        "type": "string",
+                        "description": "Snapshot ID (for restore_info)",
+                    },
+                },
+                "required": ["action"],
+            },
+            annotations=ToolAnnotations(readOnlyHint=False, destructiveHint=False),
+        ),
+        Tool(
+            name="manage_recovery",
+            description="[MONITORING] System recovery diagnostics. Actions: 'check_emergency' (detect emergency mode), 'system_state' (systemctl is-system-running + failed units), 'last_boot_issues' (previous boot error analysis), 'repair_fstab' (verify UUIDs against blkid).",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "action": {
+                        "type": "string",
+                        "enum": [
+                            "check_emergency",
+                            "system_state",
+                            "last_boot_issues",
+                            "repair_fstab",
+                        ],
+                        "description": "Recovery operation",
+                    },
+                    "dry_run": {
+                        "type": "boolean",
+                        "default": True,
+                        "description": "Dry run mode (for repair_fstab)",
+                    },
+                },
+                "required": ["action"],
+            },
+            annotations=ToolAnnotations(readOnlyHint=True),
+        ),
+        Tool(
+            name="manage_telegram_unlock",
+            description="[SECURITY] Telegram-based LUKS initramfs unlock. Actions: 'status' (check hook in initramfs), 'test_bot' (verify Bot API connectivity), 'send_unlock' (send password via Telegram bot).",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "action": {
+                        "type": "string",
+                        "enum": ["status", "test_bot", "send_unlock"],
+                        "description": "Telegram unlock operation",
+                    },
+                    "token": {
+                        "type": "string",
+                        "description": "Telegram Bot API token",
+                    },
+                    "chat_id": {
+                        "type": "string",
+                        "description": "Telegram chat ID",
+                    },
+                    "password": {
+                        "type": "string",
+                        "description": "LUKS password to send",
+                    },
+                },
+                "required": ["action"],
+            },
+            annotations=ToolAnnotations(readOnlyHint=False, destructiveHint=True),
+        ),
+        Tool(
+            name="manage_journal_gateway",
+            description="[MONITORING] Manage systemd-journal-gatewayd. Actions: 'status' (service status), 'query' (HTTP query to gateway), 'recent_errors' (fetch recent errors/warnings from last boot).",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "action": {
+                        "type": "string",
+                        "enum": ["status", "query", "recent_errors"],
+                        "description": "Journal gateway operation",
+                    },
+                    "filter_param": {
+                        "type": "string",
+                        "description": "Filter parameter for query (FIELD=value)",
+                    },
+                    "boot": {
+                        "type": "integer",
+                        "default": -1,
+                        "description": "Boot offset (-1 = previous, 0 = current)",
+                    },
+                },
+                "required": ["action"],
+            },
+            annotations=ToolAnnotations(readOnlyHint=True),
         ),
     ]
 
 
 @server.call_tool()
-async def call_tool(name: str, arguments: dict[str, Any]) -> list[TextContent | ImageContent | EmbeddedResource]:
+async def call_tool(
+    name: str, arguments: dict[str, Any]
+) -> list[TextContent | ImageContent | EmbeddedResource]:
     """
     Execute a tool by name with the provided arguments.
-    
+
     Args:
         name: Tool name
         arguments: Tool arguments
-    
+
     Returns:
         List of content objects with tool results
-    
+
     Raises:
         ValueError: If tool name is unknown
     """
     logger.info(f"Calling tool: {name} with args: {arguments}")
-    
+
     if name == "search_archwiki":
         query = arguments["query"]
         limit = arguments.get("limit", 10)
         results = await search_wiki(query, limit)
         return [TextContent(type="text", text=json.dumps(results, indent=2))]
-    
+
     elif name == "search_aur":
         query = arguments["query"]
         limit = arguments.get("limit", 20)
         sort_by = arguments.get("sort_by", "relevance")
         results = await search_aur(query, limit, sort_by)
         return [TextContent(type="text", text=json.dumps(results, indent=2))]
-    
+
     elif name == "get_official_package_info":
         package_name = arguments["package_name"]
         result = await get_official_package_info(package_name)
         return [TextContent(type="text", text=json.dumps(result, indent=2))]
-    
+
     elif name == "check_updates_dry_run":
         if not IS_ARCH:
-            return [TextContent(type="text", text=create_platform_error_message("check_updates_dry_run"))]
-        
+            return [
+                TextContent(
+                    type="text",
+                    text=create_platform_error_message("check_updates_dry_run"),
+                )
+            ]
+
         result = await check_updates_dry_run()
         return [TextContent(type="text", text=json.dumps(result, indent=2))]
-    
+
     elif name == "install_package_secure":
         if not IS_ARCH:
-            return [TextContent(type="text", text=create_platform_error_message("install_package_secure"))]
-        
+            return [
+                TextContent(
+                    type="text",
+                    text=create_platform_error_message("install_package_secure"),
+                )
+            ]
+
         package_name = arguments["package_name"]
         result = await install_package_secure(package_name)
         return [TextContent(type="text", text=json.dumps(result, indent=2))]
-    
+
     elif name == "audit_package_security":
         action = arguments["action"]
         pkgbuild_content = arguments.get("pkgbuild_content", None)
         package_name = arguments.get("package_name", None)
         package_info = arguments.get("package_info", None)
-        result = await audit_package_security(action, pkgbuild_content, package_name, package_info)
+        result = await audit_package_security(
+            action, pkgbuild_content, package_name, package_info
+        )
         return [TextContent(type="text", text=json.dumps(result, indent=2))]
 
     # Package Removal Tools
     elif name == "remove_packages":
         if not IS_ARCH:
-            return [TextContent(type="text", text=create_platform_error_message("remove_packages"))]
+            return [
+                TextContent(
+                    type="text", text=create_platform_error_message("remove_packages")
+                )
+            ]
 
         packages = arguments["packages"]
         remove_dependencies = arguments.get("remove_dependencies", False)
@@ -1452,7 +1795,11 @@ async def call_tool(name: str, arguments: dict[str, Any]) -> list[TextContent | 
     # Orphan Package Management
     elif name == "manage_orphans":
         if not IS_ARCH:
-            return [TextContent(type="text", text=create_platform_error_message("manage_orphans"))]
+            return [
+                TextContent(
+                    type="text", text=create_platform_error_message("manage_orphans")
+                )
+            ]
 
         action = arguments["action"]
         dry_run = arguments.get("dry_run", True)
@@ -1463,7 +1810,12 @@ async def call_tool(name: str, arguments: dict[str, Any]) -> list[TextContent | 
     # File Ownership Query
     elif name == "query_file_ownership":
         if not IS_ARCH:
-            return [TextContent(type="text", text=create_platform_error_message("query_file_ownership"))]
+            return [
+                TextContent(
+                    type="text",
+                    text=create_platform_error_message("query_file_ownership"),
+                )
+            ]
 
         query = arguments["query"]
         mode = arguments["mode"]
@@ -1474,7 +1826,12 @@ async def call_tool(name: str, arguments: dict[str, Any]) -> list[TextContent | 
     # Package Verification
     elif name == "verify_package_integrity":
         if not IS_ARCH:
-            return [TextContent(type="text", text=create_platform_error_message("verify_package_integrity"))]
+            return [
+                TextContent(
+                    type="text",
+                    text=create_platform_error_message("verify_package_integrity"),
+                )
+            ]
 
         package_name = arguments["package_name"]
         thorough = arguments.get("thorough", False)
@@ -1484,8 +1841,12 @@ async def call_tool(name: str, arguments: dict[str, Any]) -> list[TextContent | 
     # Package Groups
     elif name == "manage_groups":
         if not IS_ARCH:
-            return [TextContent(type="text", text=create_platform_error_message("manage_groups"))]
-        
+            return [
+                TextContent(
+                    type="text", text=create_platform_error_message("manage_groups")
+                )
+            ]
+
         action = arguments["action"]
         group_name = arguments.get("group_name", None)
         result = await manage_groups(action, group_name)
@@ -1494,7 +1855,12 @@ async def call_tool(name: str, arguments: dict[str, Any]) -> list[TextContent | 
     # Install Reason Management
     elif name == "manage_install_reason":
         if not IS_ARCH:
-            return [TextContent(type="text", text=create_platform_error_message("manage_install_reason"))]
+            return [
+                TextContent(
+                    type="text",
+                    text=create_platform_error_message("manage_install_reason"),
+                )
+            ]
 
         action = arguments["action"]
         package_name = arguments.get("package_name", None)
@@ -1527,10 +1893,19 @@ async def call_tool(name: str, arguments: dict[str, Any]) -> list[TextContent | 
         grep = arguments.get("grep")
         boot = arguments.get("boot", True)
         result = await manage_logs(
-            unit=unit, priority=priority, lines=lines,
-            since=since, until=until, grep=grep, boot=boot
+            unit=unit,
+            priority=priority,
+            lines=lines,
+            since=since,
+            until=until,
+            grep=grep,
+            boot=boot,
         )
-        return [TextContent(type="text", text=json.dumps(result, indent=2, ensure_ascii=False))]
+        return [
+            TextContent(
+                type="text", text=json.dumps(result, indent=2, ensure_ascii=False)
+            )
+        ]
 
     # News tools
     elif name == "fetch_news":
@@ -1543,12 +1918,19 @@ async def call_tool(name: str, arguments: dict[str, Any]) -> list[TextContent | 
     # Consolidated transaction history tool
     elif name == "query_package_history":
         if not IS_ARCH:
-            return [TextContent(type="text", text=create_platform_error_message("query_package_history"))]
-        
+            return [
+                TextContent(
+                    type="text",
+                    text=create_platform_error_message("query_package_history"),
+                )
+            ]
+
         query_type = arguments.get("query_type")
         package_name = arguments.get("package_name")
         limit = arguments.get("limit", 50)
-        result = await query_package_history(query_type=query_type, package_name=package_name, limit=limit)
+        result = await query_package_history(
+            query_type=query_type, package_name=package_name, limit=limit
+        )
         return [TextContent(type="text", text=json.dumps(result, indent=2))]
 
     # Mirror management tool (consolidated)
@@ -1558,50 +1940,74 @@ async def call_tool(name: str, arguments: dict[str, Any]) -> list[TextContent | 
         mirror_url = arguments.get("mirror_url")
         limit = arguments.get("limit", 10)
         auto_test = arguments.get("auto_test", False)
-        
+
         result = await optimize_mirrors(
             action=action,
             country=country,
             mirror_url=mirror_url,
             limit=limit,
-            auto_test=auto_test
+            auto_test=auto_test,
         )
         return [TextContent(type="text", text=json.dumps(result, indent=2))]
 
     # Configuration tools
     elif name == "analyze_pacman_conf":
         if not IS_ARCH:
-            return [TextContent(type="text", text=create_platform_error_message("analyze_pacman_conf"))]
-        
+            return [
+                TextContent(
+                    type="text",
+                    text=create_platform_error_message("analyze_pacman_conf"),
+                )
+            ]
+
         focus = arguments.get("focus", "full")
         result = await analyze_pacman_conf(focus=focus)
         return [TextContent(type="text", text=json.dumps(result, indent=2))]
 
     elif name == "analyze_makepkg_conf":
         if not IS_ARCH:
-            return [TextContent(type="text", text=create_platform_error_message("analyze_makepkg_conf"))]
-        
+            return [
+                TextContent(
+                    type="text",
+                    text=create_platform_error_message("analyze_makepkg_conf"),
+                )
+            ]
+
         result = await analyze_makepkg_conf()
         return [TextContent(type="text", text=json.dumps(result, indent=2))]
 
     elif name == "run_system_health_check":
         if not IS_ARCH:
-            return [TextContent(type="text", text=create_platform_error_message("run_system_health_check"))]
-        
+            return [
+                TextContent(
+                    type="text",
+                    text=create_platform_error_message("run_system_health_check"),
+                )
+            ]
+
         result = await run_system_health_check()
         return [TextContent(type="text", text=json.dumps(result, indent=2))]
 
     elif name == "check_database_freshness":
         if not IS_ARCH:
-            return [TextContent(type="text", text=create_platform_error_message("check_database_freshness"))]
-        
+            return [
+                TextContent(
+                    type="text",
+                    text=create_platform_error_message("check_database_freshness"),
+                )
+            ]
+
         result = await check_database_freshness()
         return [TextContent(type="text", text=json.dumps(result, indent=2))]
 
     # BTRFS Tools
     elif name == "analyze_btrfs":
         if not IS_ARCH:
-            return [TextContent(type="text", text=create_platform_error_message("analyze_btrfs"))]
+            return [
+                TextContent(
+                    type="text", text=create_platform_error_message("analyze_btrfs")
+                )
+            ]
 
         action = arguments["action"]
         path = arguments.get("path", "/")
@@ -1611,7 +2017,12 @@ async def call_tool(name: str, arguments: dict[str, Any]) -> list[TextContent | 
 
     elif name == "manage_btrfs_snapshots":
         if not IS_ARCH:
-            return [TextContent(type="text", text=create_platform_error_message("manage_btrfs_snapshots"))]
+            return [
+                TextContent(
+                    type="text",
+                    text=create_platform_error_message("manage_btrfs_snapshots"),
+                )
+            ]
 
         action = arguments["action"]
         description = arguments.get("description", "")
@@ -1627,18 +2038,25 @@ async def call_tool(name: str, arguments: dict[str, Any]) -> list[TextContent | 
             pre_number=pre_number,
             snapshot_id=snapshot_id,
             config=config,
-            cleanup=cleanup
+            cleanup=cleanup,
         )
         return [TextContent(type="text", text=json.dumps(result, indent=2))]
 
     elif name == "manage_btrfs_scrub":
         if not IS_ARCH:
-            return [TextContent(type="text", text=create_platform_error_message("manage_btrfs_scrub"))]
+            return [
+                TextContent(
+                    type="text",
+                    text=create_platform_error_message("manage_btrfs_scrub"),
+                )
+            ]
 
         action = arguments["action"]
         path = arguments.get("path", "/")
         background = arguments.get("background", True)
-        result = await manage_btrfs_scrub(action=action, path=path, background=background)
+        result = await manage_btrfs_scrub(
+            action=action, path=path, background=background
+        )
         return [TextContent(type="text", text=json.dumps(result, indent=2))]
 
     elif name == "manage_boot":
@@ -1646,57 +2064,206 @@ async def call_tool(name: str, arguments: dict[str, Any]) -> list[TextContent | 
         order = arguments.get("order", None)
         device = arguments.get("device", None)
         do_reboot = arguments.get("reboot", False)
-        result = await manage_boot(action=action, order=order, device=device, reboot=do_reboot)
+        result = await manage_boot(
+            action=action, order=order, device=device, reboot=do_reboot
+        )
         return [TextContent(type="text", text=json.dumps(result, indent=2))]
 
     elif name == "generate_report":
         action = arguments.get("action", "full")
         result = await generate_report(action=action)
-        return [TextContent(type="text", text=json.dumps(result, indent=2, ensure_ascii=False))]
+        return [
+            TextContent(
+                type="text", text=json.dumps(result, indent=2, ensure_ascii=False)
+            )
+        ]
 
     # ─── OS Build Testing Tools ─────────────────────────────────────────
 
     elif name == "verify_boot_artifacts":
         action = arguments.get("action", "check")
         result = await verify_boot_artifacts(action=action)
-        return [TextContent(type="text", text=json.dumps(result, indent=2, ensure_ascii=False))]
+        return [
+            TextContent(
+                type="text", text=json.dumps(result, indent=2, ensure_ascii=False)
+            )
+        ]
 
     elif name == "verify_service_health":
         action = arguments.get("action", "checklist")
         checklist = arguments.get("checklist", None)
         result = await verify_service_health(action=action, checklist=checklist)
-        return [TextContent(type="text", text=json.dumps(result, indent=2, ensure_ascii=False))]
+        return [
+            TextContent(
+                type="text", text=json.dumps(result, indent=2, ensure_ascii=False)
+            )
+        ]
 
     elif name == "verify_homectl_user":
         action = arguments.get("action", "check")
         result = await verify_homectl_user(action=action)
-        return [TextContent(type="text", text=json.dumps(result, indent=2, ensure_ascii=False))]
+        return [
+            TextContent(
+                type="text", text=json.dumps(result, indent=2, ensure_ascii=False)
+            )
+        ]
 
     elif name == "compare_fstab":
         action = arguments.get("action", "check")
         result = await compare_fstab(action=action)
-        return [TextContent(type="text", text=json.dumps(result, indent=2, ensure_ascii=False))]
+        return [
+            TextContent(
+                type="text", text=json.dumps(result, indent=2, ensure_ascii=False)
+            )
+        ]
 
     elif name == "compare_packages":
         action = arguments.get("action", "diff")
         build_conf_path = arguments.get("build_conf_path", "/etc/build.conf")
         result = await compare_packages(action=action, build_conf_path=build_conf_path)
-        return [TextContent(type="text", text=json.dumps(result, indent=2, ensure_ascii=False))]
+        return [
+            TextContent(
+                type="text", text=json.dumps(result, indent=2, ensure_ascii=False)
+            )
+        ]
 
     elif name == "check_security_posture":
         action = arguments.get("action", "full")
         result = await check_security_posture(action=action)
-        return [TextContent(type="text", text=json.dumps(result, indent=2, ensure_ascii=False))]
+        return [
+            TextContent(
+                type="text", text=json.dumps(result, indent=2, ensure_ascii=False)
+            )
+        ]
 
     elif name == "check_rpi_hardware":
         action = arguments.get("action", "full")
         result = await check_rpi_hardware(action=action)
-        return [TextContent(type="text", text=json.dumps(result, indent=2, ensure_ascii=False))]
+        return [
+            TextContent(
+                type="text", text=json.dumps(result, indent=2, ensure_ascii=False)
+            )
+        ]
 
     elif name == "benchmark_quick":
         action = arguments.get("action", "full")
         result = await benchmark_quick(action=action)
-        return [TextContent(type="text", text=json.dumps(result, indent=2, ensure_ascii=False))]
+        return [
+            TextContent(
+                type="text", text=json.dumps(result, indent=2, ensure_ascii=False)
+            )
+        ]
+
+    # ─── v0.10 call handlers ───
+    elif name == "manage_luks":
+        action = arguments.get("action", "status")
+        device = arguments.get("device")
+        old_pass = arguments.get("old_pass")
+        new_pass = arguments.get("new_pass")
+        key_file = arguments.get("key_file")
+        slot = arguments.get("slot")
+        result = await manage_luks(
+            action=action,
+            device=device,
+            old_pass=old_pass,
+            new_pass=new_pass,
+            key_file=key_file,
+            slot=slot,
+        )
+        return [
+            TextContent(
+                type="text", text=json.dumps(result, indent=2, ensure_ascii=False)
+            )
+        ]
+
+    elif name == "manage_firewall":
+        action = arguments.get("action", "list_rules")
+        port = arguments.get("port")
+        proto = arguments.get("proto", "tcp")
+        interface = arguments.get("interface")
+        chain = arguments.get("chain")
+        result = await manage_firewall(
+            action=action, port=port, proto=proto, interface=interface, chain=chain
+        )
+        return [
+            TextContent(
+                type="text", text=json.dumps(result, indent=2, ensure_ascii=False)
+            )
+        ]
+
+    elif name == "manage_hardware":
+        action = arguments.get("action", "health")
+        channel = arguments.get("channel", "default")
+        path = arguments.get("path", "/")
+        size = arguments.get("size", "1G")
+        result = await manage_hardware(
+            action=action, channel=channel, path=path, size=size
+        )
+        return [
+            TextContent(
+                type="text", text=json.dumps(result, indent=2, ensure_ascii=False)
+            )
+        ]
+
+    elif name == "manage_boot_config":
+        action = arguments.get("action", "read_config")
+        result = await manage_boot_config(action=action)
+        return [
+            TextContent(
+                type="text", text=json.dumps(result, indent=2, ensure_ascii=False)
+            )
+        ]
+
+    elif name == "manage_backup":
+        action = arguments.get("action", "status")
+        config = arguments.get("config")
+        dry_run = arguments.get("dry_run", False)
+        snapshot_id = arguments.get("snapshot_id")
+        result = await manage_backup(
+            action=action, config=config, dry_run=dry_run, snapshot_id=snapshot_id
+        )
+        return [
+            TextContent(
+                type="text", text=json.dumps(result, indent=2, ensure_ascii=False)
+            )
+        ]
+
+    elif name == "manage_recovery":
+        action = arguments.get("action", "system_state")
+        dry_run = arguments.get("dry_run", True)
+        result = await manage_recovery(action=action, dry_run=dry_run)
+        return [
+            TextContent(
+                type="text", text=json.dumps(result, indent=2, ensure_ascii=False)
+            )
+        ]
+
+    elif name == "manage_telegram_unlock":
+        action = arguments.get("action", "status")
+        token = arguments.get("token")
+        chat_id = arguments.get("chat_id")
+        password = arguments.get("password")
+        result = await manage_telegram_unlock(
+            action=action, token=token, chat_id=chat_id, password=password
+        )
+        return [
+            TextContent(
+                type="text", text=json.dumps(result, indent=2, ensure_ascii=False)
+            )
+        ]
+
+    elif name == "manage_journal_gateway":
+        action = arguments.get("action", "status")
+        filter_param = arguments.get("filter_param")
+        boot = arguments.get("boot", -1)
+        result = await manage_journal_gateway(
+            action=action, filter_param=filter_param, boot=boot
+        )
+        return [
+            TextContent(
+                type="text", text=json.dumps(result, indent=2, ensure_ascii=False)
+            )
+        ]
 
     else:
         raise ValueError(f"Unknown tool: {name}")
@@ -1706,11 +2273,12 @@ async def call_tool(name: str, arguments: dict[str, Any]) -> list[TextContent | 
 # PROMPTS
 # ============================================================================
 
+
 @server.list_prompts()
 async def list_prompts() -> list[Prompt]:
     """
     List available prompts for guided workflows.
-    
+
     Returns:
         List of Prompt objects describing available workflows
     """
@@ -1722,14 +2290,14 @@ async def list_prompts() -> list[Prompt]:
                 {
                     "name": "error_message",
                     "description": "The error message or issue description",
-                    "required": True
+                    "required": True,
                 },
                 {
                     "name": "context",
                     "description": "Additional context about when/where the error occurred",
-                    "required": False
-                }
-            ]
+                    "required": False,
+                },
+            ],
         ),
         Prompt(
             name="audit_aur_package",
@@ -1738,9 +2306,9 @@ async def list_prompts() -> list[Prompt]:
                 {
                     "name": "package_name",
                     "description": "Name of the AUR package to audit",
-                    "required": True
+                    "required": True,
                 }
-            ]
+            ],
         ),
         Prompt(
             name="analyze_dependencies",
@@ -1749,14 +2317,14 @@ async def list_prompts() -> list[Prompt]:
                 {
                     "name": "package_name",
                     "description": "Name of the package to analyze dependencies for",
-                    "required": True
+                    "required": True,
                 }
-            ]
+            ],
         ),
         Prompt(
             name="safe_system_update",
             description="Enhanced system update workflow that checks for critical news, disk space, and failed services before updating",
-            arguments=[]
+            arguments=[],
         ),
         Prompt(
             name="cleanup_system",
@@ -1765,9 +2333,9 @@ async def list_prompts() -> list[Prompt]:
                 {
                     "name": "aggressive",
                     "description": "Perform aggressive cleanup (removes more packages). Default: false",
-                    "required": False
+                    "required": False,
                 }
-            ]
+            ],
         ),
         Prompt(
             name="package_investigation",
@@ -1776,9 +2344,9 @@ async def list_prompts() -> list[Prompt]:
                 {
                     "name": "package_name",
                     "description": "Package name to investigate",
-                    "required": True
+                    "required": True,
                 }
-            ]
+            ],
         ),
         Prompt(
             name="mirror_optimization",
@@ -1787,14 +2355,14 @@ async def list_prompts() -> list[Prompt]:
                 {
                     "name": "country",
                     "description": "Country code for mirror suggestions (e.g., US, DE, JP)",
-                    "required": False
+                    "required": False,
                 }
-            ]
+            ],
         ),
         Prompt(
             name="system_health_check",
             description="Comprehensive system diagnostic: check disk, services, logs, database, integrity",
-            arguments=[]
+            arguments=[],
         ),
     ]
 
@@ -1803,121 +2371,121 @@ async def list_prompts() -> list[Prompt]:
 async def get_prompt(name: str, arguments: dict[str, str]) -> GetPromptResult:
     """
     Generate a prompt response for guided workflows.
-    
+
     Args:
         name: Prompt name
         arguments: Prompt arguments
-    
+
     Returns:
         GetPromptResult with generated messages
-    
+
     Raises:
         ValueError: If prompt name is unknown
     """
     logger.info(f"Generating prompt: {name} with args: {arguments}")
-    
+
     if name == "troubleshoot_issue":
         error_message = arguments["error_message"]
         context = arguments.get("context", "")
-        
+
         # Extract keywords from error message for Wiki search
         keywords = error_message.lower().split()
         wiki_query = " ".join(keywords[:5])  # Use first 5 words as search query
-        
+
         # Search Wiki for relevant pages
         try:
             wiki_results = await search_wiki(wiki_query, limit=3)
         except Exception as e:
             wiki_results = []
-        
+
         messages = [
             PromptMessage(
                 role="user",
                 content=PromptMessage.TextContent(
                     type="text",
-                    text=f"I'm experiencing this error: {error_message}\n\nContext: {context}\n\nPlease help me troubleshoot this issue using Arch Linux knowledge."
-                )
+                    text=f"I'm experiencing this error: {error_message}\n\nContext: {context}\n\nPlease help me troubleshoot this issue using Arch Linux knowledge.",
+                ),
             )
         ]
-        
+
         if wiki_results:
             wiki_content = "Here are some relevant Arch Wiki pages that might help:\n\n"
             for result in wiki_results:
                 wiki_content += f"- **{result['title']}**: {result.get('snippet', 'No description available')}\n"
                 wiki_content += f"  URL: {result['url']}\n\n"
-            
+
             messages.append(
                 PromptMessage(
                     role="assistant",
-                    content=PromptMessage.TextContent(
-                        type="text",
-                        text=wiki_content
-                    )
+                    content=PromptMessage.TextContent(type="text", text=wiki_content),
                 )
             )
-        
+
         return GetPromptResult(
             description=f"Troubleshooting guidance for: {error_message}",
-            messages=messages
+            messages=messages,
         )
-    
+
     elif name == "audit_aur_package":
         package_name = arguments["package_name"]
-        
+
         # Get package info and PKGBUILD
         try:
             package_info = await get_aur_info(package_name)
             pkgbuild_content = await get_pkgbuild(package_name)
-            
+
             # Analyze both metadata and PKGBUILD
             metadata_risk = analyze_package_metadata_risk(package_info)
             pkgbuild_safety = analyze_pkgbuild_safety(pkgbuild_content)
-            
+
             audit_summary = f"""
 # Security Audit Report for {package_name}
 
 ## Package Metadata Analysis
-- **Trust Score**: {metadata_risk.get('trust_score', 'N/A')}/100
-- **Risk Factors**: {', '.join(metadata_risk.get('risk_factors', []))}
-- **Trust Indicators**: {', '.join(metadata_risk.get('trust_indicators', []))}
+- **Trust Score**: {metadata_risk.get("trust_score", "N/A")}/100
+- **Risk Factors**: {", ".join(metadata_risk.get("risk_factors", []))}
+- **Trust Indicators**: {", ".join(metadata_risk.get("trust_indicators", []))}
 
 ## PKGBUILD Security Analysis
-- **Risk Score**: {pkgbuild_safety.get('risk_score', 'N/A')}/100
-- **Security Issues Found**: {len(pkgbuild_safety.get('findings', []))}
-- **Critical Issues**: {len([f for f in pkgbuild_safety.get('findings', []) if f.get('severity') == 'critical'])}
+- **Risk Score**: {pkgbuild_safety.get("risk_score", "N/A")}/100
+- **Security Issues Found**: {len(pkgbuild_safety.get("findings", []))}
+- **Critical Issues**: {len([f for f in pkgbuild_safety.get("findings", []) if f.get("severity") == "critical"])}
 
 ## Recommendations
 """
-            
-            if metadata_risk.get('trust_score', 0) < 50 or pkgbuild_safety.get('risk_score', 0) > 70:
+
+            if (
+                metadata_risk.get("trust_score", 0) < 50
+                or pkgbuild_safety.get("risk_score", 0) > 70
+            ):
                 audit_summary += "⚠️ **HIGH RISK** - Consider finding an alternative package or reviewing the source code manually.\n"
-            elif metadata_risk.get('trust_score', 0) < 70 or pkgbuild_safety.get('risk_score', 0) > 50:
+            elif (
+                metadata_risk.get("trust_score", 0) < 70
+                or pkgbuild_safety.get("risk_score", 0) > 50
+            ):
                 audit_summary += "⚠️ **MEDIUM RISK** - Proceed with caution and review the findings below.\n"
             else:
                 audit_summary += "✅ **LOW RISK** - Package appears safe to install.\n"
-            
+
             messages = [
                 PromptMessage(
                     role="user",
                     content=PromptMessage.TextContent(
                         type="text",
-                        text=f"Please audit the AUR package '{package_name}' for security issues before installation."
-                    )
+                        text=f"Please audit the AUR package '{package_name}' for security issues before installation.",
+                    ),
                 ),
                 PromptMessage(
                     role="assistant",
-                    content=PromptMessage.TextContent(
-                        type="text",
-                        text=audit_summary
-                    )
-                )
+                    content=PromptMessage.TextContent(type="text", text=audit_summary),
+                ),
             ]
-            
+
             return GetPromptResult(
                 description=f"Security audit for AUR package: {package_name}",
-                messages=messages
+                messages=messages,
             )
-            
+
         except Exception as e:
             return GetPromptResult(
                 description=f"Security audit for AUR package: {package_name}",
@@ -1926,22 +2494,22 @@ async def get_prompt(name: str, arguments: dict[str, str]) -> GetPromptResult:
                         role="assistant",
                         content=PromptMessage.TextContent(
                             type="text",
-                            text=f"Error auditing package '{package_name}': {str(e)}"
-                        )
+                            text=f"Error auditing package '{package_name}': {str(e)}",
+                        ),
                     )
-                ]
+                ],
             )
-    
+
     elif name == "analyze_dependencies":
         package_name = arguments["package_name"]
-        
+
         # Check if it's an official package first
         try:
             official_info = await get_official_package_info(package_name)
             if official_info.get("found"):
                 deps = official_info.get("dependencies", [])
                 opt_deps = official_info.get("optional_dependencies", [])
-                
+
                 analysis = f"""
 # Dependency Analysis for {package_name} (Official Package)
 
@@ -1959,10 +2527,10 @@ async def get_prompt(name: str, arguments: dict[str, str]) -> GetPromptResult:
 ## Installation Commands
 ```bash
 # Install required dependencies
-sudo pacman -S {' '.join(deps) if deps else '# No required dependencies'}
+sudo pacman -S {" ".join(deps) if deps else "# No required dependencies"}
 
 # Install optional dependencies (if needed)
-sudo pacman -S {' '.join(opt_deps) if opt_deps else '# No optional dependencies'}
+sudo pacman -S {" ".join(opt_deps) if opt_deps else "# No optional dependencies"}
 
 # Install the package
 sudo pacman -S {package_name}
@@ -1976,9 +2544,9 @@ sudo pacman -S {package_name}
 # Dependency Analysis for {package_name} (AUR Package)
 
 ## AUR Package Information
-- **Maintainer**: {aur_info.get('maintainer', 'Unknown')}
-- **Last Updated**: {aur_info.get('last_modified', 'Unknown')}
-- **Votes**: {aur_info.get('votes', 'Unknown')}
+- **Maintainer**: {aur_info.get("maintainer", "Unknown")}
+- **Last Updated**: {aur_info.get("last_modified", "Unknown")}
+- **Votes**: {aur_info.get("votes", "Unknown")}
 
 ## Installation Considerations
 1. **Security Check**: Run a security audit before installation
@@ -2001,10 +2569,10 @@ paru -S {package_name}  # or yay -S {package_name}
 """
                 else:
                     analysis = f"Package '{package_name}' not found in official repositories or AUR."
-        
+
         except Exception as e:
             analysis = f"Error analyzing dependencies for '{package_name}': {str(e)}"
-        
+
         return GetPromptResult(
             description=f"Dependency analysis for: {package_name}",
             messages=[
@@ -2012,19 +2580,16 @@ paru -S {package_name}  # or yay -S {package_name}
                     role="user",
                     content=PromptMessage.TextContent(
                         type="text",
-                        text=f"Please analyze the dependencies for the package '{package_name}' and suggest the best installation approach."
-                    )
+                        text=f"Please analyze the dependencies for the package '{package_name}' and suggest the best installation approach.",
+                    ),
                 ),
                 PromptMessage(
                     role="assistant",
-                    content=PromptMessage.TextContent(
-                        type="text",
-                        text=analysis
-                    )
-                )
-            ]
+                    content=PromptMessage.TextContent(type="text", text=analysis),
+                ),
+            ],
         )
-    
+
     elif name == "safe_system_update":
         if not IS_ARCH:
             return GetPromptResult(
@@ -2034,20 +2599,22 @@ paru -S {package_name}  # or yay -S {package_name}
                         role="assistant",
                         content=PromptMessage.TextContent(
                             type="text",
-                            text=create_platform_error_message("safe_system_update prompt")
-                        )
+                            text=create_platform_error_message(
+                                "safe_system_update prompt"
+                            ),
+                        ),
                     )
-                ]
+                ],
             )
-        
+
         analysis = "# Safe System Update Workflow\n\n"
         warnings = []
         recommendations = []
-        
+
         # Step 1: Check for critical news
         try:
             critical_news = await check_critical_news(limit=10)
-            
+
             if critical_news.get("has_critical"):
                 analysis += "## ⚠️ Critical Arch Linux News\n\n"
                 for news_item in critical_news.get("critical_news", [])[:3]:
@@ -2055,19 +2622,21 @@ paru -S {package_name}  # or yay -S {package_name}
                     analysis += f"Published: {news_item['published']}\n"
                     analysis += f"{news_item['summary'][:200]}...\n"
                     analysis += f"[Read more]({news_item['link']})\n\n"
-                
+
                 warnings.append("Critical news requiring manual intervention found!")
-                recommendations.append("Read all critical news articles before updating")
+                recommendations.append(
+                    "Read all critical news articles before updating"
+                )
             else:
                 analysis += "## ✓ No Critical News\n\nNo manual intervention required for recent updates.\n\n"
         except Exception as e:
             analysis += f"## ⚠️ News Check Failed\n\n{str(e)}\n\n"
-        
+
         # Step 2: Check disk space
         try:
             disk_space = await check_disk_space()
             disk_usage = disk_space.get("disk_usage", {})
-            
+
             analysis += "## Disk Space Status\n\n"
             for path, info in disk_usage.items():
                 if "warning" in info:
@@ -2078,19 +2647,19 @@ paru -S {package_name}  # or yay -S {package_name}
             analysis += "\n"
         except Exception as e:
             analysis += f"## ⚠️ Disk Space Check Failed\n\n{str(e)}\n\n"
-        
+
         # Step 3: Check pending updates
         try:
             updates = await check_updates_dry_run()
-            
+
             if updates.get("updates_available"):
                 count = updates.get("count", 0)
                 analysis += f"## Pending Updates ({count} packages)\n\n"
-                
+
                 # Show first 10 updates
                 for update in updates.get("packages", [])[:10]:
                     analysis += f"- {update['package']}: {update['current_version']} → {update['new_version']}\n"
-                
+
                 if count > 10:
                     analysis += f"\n...and {count - 10} more packages\n"
                 analysis += "\n"
@@ -2102,19 +2671,18 @@ paru -S {package_name}  # or yay -S {package_name}
                         PromptMessage(
                             role="assistant",
                             content=PromptMessage.TextContent(
-                                type="text",
-                                text=analysis
-                            )
+                                type="text", text=analysis
+                            ),
                         )
-                    ]
+                    ],
                 )
         except Exception as e:
             analysis += f"## ⚠️ Update Check Failed\n\n{str(e)}\n\n"
-        
+
         # Step 4: Check failed services
         try:
             failed_services = await check_failed_services()
-            
+
             if not failed_services.get("all_ok"):
                 analysis += "## ⚠️ Failed Services Detected\n\n"
                 for service in failed_services.get("failed_services", [])[:5]:
@@ -2123,14 +2691,16 @@ paru -S {package_name}  # or yay -S {package_name}
                 recommendations.append("Investigate failed services before updating")
                 analysis += "\n"
             else:
-                analysis += "## ✓ All Services Running\n\nNo failed systemd services.\n\n"
+                analysis += (
+                    "## ✓ All Services Running\n\nNo failed systemd services.\n\n"
+                )
         except Exception as e:
             analysis += f"## ⚠️ Service Check Failed\n\n{str(e)}\n\n"
-        
+
         # Step 5: Check database freshness
         try:
             db_freshness = await check_database_freshness()
-            
+
             if db_freshness.get("needs_sync"):
                 analysis += "## Database Synchronization\n\n"
                 analysis += f"Databases are {db_freshness.get('oldest_age_hours', 0):.1f} hours old.\n"
@@ -2138,28 +2708,28 @@ paru -S {package_name}  # or yay -S {package_name}
                 analysis += "\n"
         except Exception as e:
             logger.warning(f"Database freshness check failed: {e}")
-        
+
         # Step 6: Summary and recommendations
         analysis += "## Recommendations\n\n"
-        
+
         if warnings:
             analysis += "### Warnings:\n"
             for warning in warnings:
                 analysis += f"- ⚠️ {warning}\n"
             analysis += "\n"
-        
+
         if recommendations:
             analysis += "### Before Updating:\n"
             for rec in recommendations:
                 analysis += f"- {rec}\n"
             analysis += "\n"
-        
+
         if not warnings:
             analysis += "✓ System is ready for update\n\n"
             analysis += "Run: `sudo pacman -Syu`\n"
         else:
             analysis += "⚠️ **Address warnings before updating**\n"
-        
+
         return GetPromptResult(
             description="Safe system update analysis",
             messages=[
@@ -2167,17 +2737,14 @@ paru -S {package_name}  # or yay -S {package_name}
                     role="user",
                     content=PromptMessage.TextContent(
                         type="text",
-                        text="Check if my system is ready for a safe update"
-                    )
+                        text="Check if my system is ready for a safe update",
+                    ),
                 ),
                 PromptMessage(
                     role="assistant",
-                    content=PromptMessage.TextContent(
-                        type="text",
-                        text=analysis
-                    )
-                )
-            ]
+                    content=PromptMessage.TextContent(type="text", text=analysis),
+                ),
+            ],
         )
 
     elif name == "cleanup_system":
@@ -2189,10 +2756,10 @@ paru -S {package_name}  # or yay -S {package_name}
                         role="assistant",
                         content=PromptMessage.TextContent(
                             type="text",
-                            text=create_platform_error_message("cleanup_system prompt")
-                        )
+                            text=create_platform_error_message("cleanup_system prompt"),
+                        ),
                     )
-                ]
+                ],
             )
 
         aggressive = arguments.get("aggressive", "false").lower() == "true"
@@ -2209,7 +2776,7 @@ paru -S {package_name}  # or yay -S {package_name}
 1. **Check Orphaned Packages**:
    - Run manage_orphans with action='list'
    - Review the list for packages that can be safely removed
-   {'   - Be aggressive: remove all orphans unless critical' if aggressive else '   - Be conservative: keep packages that might be useful'}
+   {"   - Be aggressive: remove all orphans unless critical" if aggressive else "   - Be conservative: keep packages that might be useful"}
 
 2. **Clean Package Cache**:
    - Run get_pacman_cache_stats
@@ -2231,10 +2798,10 @@ paru -S {package_name}  # or yay -S {package_name}
    - Integrity issues found
    - Recommended next steps
 
-Be thorough and explain each step."""
-                    )
+Be thorough and explain each step.""",
+                    ),
                 )
-            ]
+            ],
         )
 
     elif name == "package_investigation":
@@ -2247,11 +2814,10 @@ Be thorough and explain each step."""
                     PromptMessage(
                         role="assistant",
                         content=PromptMessage.TextContent(
-                            type="text",
-                            text="Error: package_name argument is required"
-                        )
+                            type="text", text="Error: package_name argument is required"
+                        ),
                     )
-                ]
+                ],
             )
 
         return GetPromptResult(
@@ -2303,10 +2869,10 @@ Be thorough and explain each step."""
    - Suggest official repo alternatives if available
    - Suggest better-maintained AUR packages if found
 
-Be comprehensive and explain security implications."""
-                    )
+Be comprehensive and explain security implications.""",
+                    ),
                 )
-            ]
+            ],
         )
 
     elif name == "mirror_optimization":
@@ -2327,7 +2893,7 @@ Be comprehensive and explain security implications."""
    - Identify slow mirrors (> 500ms)
 
 2. **Suggest Optimal Mirrors**:
-   - Run optimize_mirrors(action='suggest'{f', country="{country}"' if country else ''}, limit=10)
+   - Run optimize_mirrors(action='suggest'{f', country="{country}"' if country else ""}, limit=10)
    - Based on geographic location and current status
    - Show top 10 recommended mirrors
 
@@ -2346,10 +2912,10 @@ Be comprehensive and explain security implications."""
    - Reduced update times
    - Better reliability
 
-Be detailed and provide specific mirror URLs and configuration commands."""
-                    )
+Be detailed and provide specific mirror URLs and configuration commands.""",
+                    ),
                 )
-            ]
+            ],
         )
 
     elif name == "system_health_check":
@@ -2361,10 +2927,12 @@ Be detailed and provide specific mirror URLs and configuration commands."""
                         role="assistant",
                         content=PromptMessage.TextContent(
                             type="text",
-                            text=create_platform_error_message("system_health_check prompt")
-                        )
+                            text=create_platform_error_message(
+                                "system_health_check prompt"
+                            ),
+                        ),
                     )
-                ]
+                ],
             )
 
         return GetPromptResult(
@@ -2418,10 +2986,10 @@ Be detailed and provide specific mirror URLs and configuration commands."""
    - Prioritized recommendations for fixes
    - Estimate of system optimization potential
 
-Be thorough and provide actionable recommendations with specific commands."""
-                    )
+Be thorough and provide actionable recommendations with specific commands.""",
+                    ),
                 )
-            ]
+            ],
         )
 
     else:

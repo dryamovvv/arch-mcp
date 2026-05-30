@@ -49,7 +49,12 @@ from .system import (
     diagnose_system,
 )
 from .system_health_check import run_system_health_check
-from .news import get_latest_news, check_critical_news, get_news_since_last_update, fetch_news
+from .news import (
+    get_latest_news,
+    check_critical_news,
+    get_news_since_last_update,
+    fetch_news,
+)
 from .logs import (
     get_transaction_history,
     find_when_installed,
@@ -71,7 +76,7 @@ from .config import (
     check_ignored_packages,
     get_parallel_downloads_setting,
 )
-from .journal import manage_logs
+from .journal import manage_logs, manage_journal_gateway
 from .utils import IS_ARCH, run_command
 
 # Import server from the server module
@@ -160,11 +165,11 @@ __all__ = [
     "check_failed_services",
     "get_boot_logs",
     "run_system_health_check",
-     # News
-     "get_latest_news",
-     "check_critical_news",
-     "get_news_since_last_update",
-     "fetch_news",
+    # News
+    "get_latest_news",
+    "check_critical_news",
+    "get_news_since_last_update",
+    "fetch_news",
     # Logs
     "get_transaction_history",
     "find_when_installed",

@@ -23,19 +23,17 @@ async def _check_btrfs(path: str = "/") -> Optional[Dict[str, Any]]:
     if not check_command_exists("btrfs"):
         return create_error_response(
             "NotSupported",
-            "btrfs-progs is not installed. Install with: sudo pacman -S btrfs-progs"
+            "btrfs-progs is not installed. Install with: sudo pacman -S btrfs-progs",
         )
 
     exit_code, stdout, _ = await run_command(
-        ["stat", "-f", "--format=%T", path],
-        timeout=5,
-        check=False
+        ["stat", "-f", "--format=%T", path], timeout=5, check=False
     )
     if exit_code != 0 or stdout.strip() != "btrfs":
         return create_error_response(
             "NotBtrfs",
             f"Path '{path}' is not on a BTRFS filesystem",
-            details=f"Filesystem type: {stdout.strip() if exit_code == 0 else 'unknown'}"
+            details=f"Filesystem type: {stdout.strip() if exit_code == 0 else 'unknown'}",
         )
 
     return None
@@ -49,7 +47,7 @@ async def _run_btrfs(cmd: list[str], timeout: int = 15) -> Dict[str, Any]:
         return create_error_response(
             "CommandError",
             f"btrfs command failed: {' '.join(cmd)}",
-            details=stderr.strip()
+            details=stderr.strip(),
         )
 
     return {"stdout": stdout, "stderr": stderr}
@@ -68,15 +66,12 @@ async def get_filesystem_info(path: str = "/") -> Dict[str, Any]:
         return err
 
     exit_code, stdout, stderr = await run_command(
-        ["btrfs", "filesystem", "show", path],
-        timeout=10,
-        check=False
+        ["btrfs", "filesystem", "show", path], timeout=10, check=False
     )
 
     if exit_code != 0:
         return create_error_response(
-            "CommandError",
-            f"btrfs filesystem show failed: {stderr.strip()}"
+            "CommandError", f"btrfs filesystem show failed: {stderr.strip()}"
         )
 
     devices = []
@@ -131,15 +126,12 @@ async def get_filesystem_df(path: str = "/") -> Dict[str, Any]:
         return err
 
     exit_code, stdout, stderr = await run_command(
-        ["btrfs", "filesystem", "df", path],
-        timeout=10,
-        check=False
+        ["btrfs", "filesystem", "df", path], timeout=10, check=False
     )
 
     if exit_code != 0:
         return create_error_response(
-            "CommandError",
-            f"btrfs filesystem df failed: {stderr.strip()}"
+            "CommandError", f"btrfs filesystem df failed: {stderr.strip()}"
         )
 
     profiles = {}
@@ -154,7 +146,9 @@ async def get_filesystem_df(path: str = "/") -> Dict[str, Any]:
 
         raw_name = " ".join(parts[:2])
         profile_name = raw_name.rstrip(":,")
-        total_str = parts[2].split("=")[-1] if len(parts) > 2 and "=" in parts[2] else ""
+        total_str = (
+            parts[2].split("=")[-1] if len(parts) > 2 and "=" in parts[2] else ""
+        )
         used_str = parts[4].split("=")[-1] if len(parts) > 4 and "=" in parts[4] else ""
 
         profiles[profile_name] = {
@@ -174,15 +168,12 @@ async def get_filesystem_usage(path: str = "/") -> Dict[str, Any]:
         return err
 
     exit_code, stdout, stderr = await run_command(
-        ["btrfs", "filesystem", "usage", path],
-        timeout=10,
-        check=False
+        ["btrfs", "filesystem", "usage", path], timeout=10, check=False
     )
 
     if exit_code != 0:
         return create_error_response(
-            "CommandError",
-            f"btrfs filesystem usage failed: {stderr.strip()}"
+            "CommandError", f"btrfs filesystem usage failed: {stderr.strip()}"
         )
 
     result = {
@@ -244,15 +235,12 @@ async def list_subvolumes(path: str = "/") -> Dict[str, Any]:
         return err
 
     exit_code, stdout, stderr = await run_command(
-        ["btrfs", "subvolume", "list", "-t", path],
-        timeout=10,
-        check=False
+        ["btrfs", "subvolume", "list", "-t", path], timeout=10, check=False
     )
 
     if exit_code != 0:
         return create_error_response(
-            "CommandError",
-            f"btrfs subvolume list failed: {stderr.strip()}"
+            "CommandError", f"btrfs subvolume list failed: {stderr.strip()}"
         )
 
     subvolumes = []
@@ -281,7 +269,7 @@ async def list_subvolumes(path: str = "/") -> Dict[str, Any]:
                     "id": int(parts[0]),
                     "gen": int(parts[1]),
                     "top_level": int(parts[2]),
-                    "path": parts[3]
+                    "path": parts[3],
                 }
                 subvolumes.append(subvol)
             except (ValueError, IndexError):
@@ -299,15 +287,12 @@ async def get_subvolume_info(path: str = "/") -> Dict[str, Any]:
         return err
 
     exit_code, stdout, stderr = await run_command(
-        ["btrfs", "subvolume", "show", path],
-        timeout=10,
-        check=False
+        ["btrfs", "subvolume", "show", path], timeout=10, check=False
     )
 
     if exit_code != 0:
         return create_error_response(
-            "CommandError",
-            f"btrfs subvolume show failed: {stderr.strip()}"
+            "CommandError", f"btrfs subvolume show failed: {stderr.strip()}"
         )
 
     info = {}
@@ -359,15 +344,12 @@ async def get_device_stats(path: str = "/") -> Dict[str, Any]:
         return err
 
     exit_code, stdout, stderr = await run_command(
-        ["btrfs", "device", "stats", path],
-        timeout=10,
-        check=False
+        ["btrfs", "device", "stats", path], timeout=10, check=False
     )
 
     if exit_code != 0:
         return create_error_response(
-            "CommandError",
-            f"btrfs device stats failed: {stderr.strip()}"
+            "CommandError", f"btrfs device stats failed: {stderr.strip()}"
         )
 
     devices = {}
@@ -379,7 +361,7 @@ async def get_device_stats(path: str = "/") -> Dict[str, Any]:
         if line.startswith("[") and "]" in line:
             dev_close = line.index("]")
             device_path = line[1:dev_close]
-            rest = line[dev_close + 1:].lstrip(".")
+            rest = line[dev_close + 1 :].lstrip(".")
             parts = rest.split()
             if parts:
                 err_name = parts[0]
@@ -390,10 +372,7 @@ async def get_device_stats(path: str = "/") -> Dict[str, Any]:
 
                 devices[device_path][err_name] = int(err_val)
 
-    has_errors = any(
-        any(v != 0 for v in dev.values())
-        for dev in devices.values()
-    )
+    has_errors = any(any(v != 0 for v in dev.values()) for dev in devices.values())
 
     logger.info(f"BTRFS device stats: {len(devices)} devices, has_errors={has_errors}")
     return {
@@ -410,15 +389,12 @@ async def get_device_usage(path: str = "/") -> Dict[str, Any]:
         return err
 
     exit_code, stdout, stderr = await run_command(
-        ["btrfs", "device", "usage", path],
-        timeout=10,
-        check=False
+        ["btrfs", "device", "usage", path], timeout=10, check=False
     )
 
     if exit_code != 0:
         return create_error_response(
-            "CommandError",
-            f"btrfs device usage failed: {stderr.strip()}"
+            "CommandError", f"btrfs device usage failed: {stderr.strip()}"
         )
 
     devices = {}
@@ -465,15 +441,12 @@ async def get_properties(path: str = "/") -> Dict[str, Any]:
         return err
 
     exit_code, stdout, stderr = await run_command(
-        ["btrfs", "property", "get", path],
-        timeout=10,
-        check=False
+        ["btrfs", "property", "get", path], timeout=10, check=False
     )
 
     if exit_code != 0:
         return create_error_response(
-            "CommandError",
-            f"btrfs property get failed: {stderr.strip()}"
+            "CommandError", f"btrfs property get failed: {stderr.strip()}"
         )
 
     properties = {}
@@ -500,15 +473,12 @@ async def get_scrub_status(path: str = "/") -> Dict[str, Any]:
         return err
 
     exit_code, stdout, stderr = await run_command(
-        ["btrfs", "scrub", "status", path],
-        timeout=10,
-        check=False
+        ["btrfs", "scrub", "status", path], timeout=10, check=False
     )
 
     if exit_code != 0:
         return create_error_response(
-            "CommandError",
-            f"btrfs scrub status failed: {stderr.strip()}"
+            "CommandError", f"btrfs scrub status failed: {stderr.strip()}"
         )
 
     status = {}
@@ -536,16 +506,11 @@ async def start_scrub(path: str = "/", background: bool = True) -> Dict[str, Any
 
     timeout = 300 if not background else 30
 
-    exit_code, stdout, stderr = await run_command(
-        cmd,
-        timeout=timeout,
-        check=False
-    )
+    exit_code, stdout, stderr = await run_command(cmd, timeout=timeout, check=False)
 
     if exit_code != 0:
         return create_error_response(
-            "ScrubError",
-            f"Failed to start scrub: {stderr.strip()}"
+            "ScrubError", f"Failed to start scrub: {stderr.strip()}"
         )
 
     logger.info("BTRFS scrub started")
@@ -564,15 +529,12 @@ async def cancel_scrub(path: str = "/") -> Dict[str, Any]:
         return err
 
     exit_code, stdout, stderr = await run_command(
-        ["btrfs", "scrub", "cancel", path],
-        timeout=10,
-        check=False
+        ["btrfs", "scrub", "cancel", path], timeout=10, check=False
     )
 
     if exit_code != 0:
         return create_error_response(
-            "ScrubCancelError",
-            f"Failed to cancel scrub: {stderr.strip()}"
+            "ScrubCancelError", f"Failed to cancel scrub: {stderr.strip()}"
         )
 
     logger.info("BTRFS scrub cancelled")
@@ -590,19 +552,16 @@ async def list_snapshots(config: str = "root") -> Dict[str, Any]:
     if not check_command_exists("snapper"):
         return create_error_response(
             "NotSupported",
-            "snapper is not installed. Install with: sudo pacman -S snapper"
+            "snapper is not installed. Install with: sudo pacman -S snapper",
         )
 
     exit_code, stdout, stderr = await run_command(
-        ["snapper", "-c", config, "list"],
-        timeout=15,
-        check=False
+        ["snapper", "-c", config, "list"], timeout=15, check=False
     )
 
     if exit_code != 0:
         return create_error_response(
-            "CommandError",
-            f"snapper list failed: {stderr.strip()}"
+            "CommandError", f"snapper list failed: {stderr.strip()}"
         )
 
     snapshots = []
@@ -644,15 +603,10 @@ async def get_snapper_configs() -> Dict[str, Any]:
     logger.info("Getting snapper configurations")
 
     if not check_command_exists("snapper"):
-        return create_error_response(
-            "NotSupported",
-            "snapper is not installed."
-        )
+        return create_error_response("NotSupported", "snapper is not installed.")
 
     exit_code, stdout, _ = await run_command(
-        ["snapper", "list-configs"],
-        timeout=10,
-        check=False
+        ["snapper", "list-configs"], timeout=10, check=False
     )
 
     if exit_code != 0:
@@ -666,7 +620,11 @@ async def get_snapper_configs() -> Dict[str, Any]:
         line_stripped = line.strip()
         if not line_stripped:
             continue
-        if line_stripped.startswith("Config") or line_stripped.startswith("-") or line_stripped.startswith("\u2500"):
+        if (
+            line_stripped.startswith("Config")
+            or line_stripped.startswith("-")
+            or line_stripped.startswith("\u2500")
+        ):
             found_header = True
             continue
         if not found_header:
@@ -684,7 +642,7 @@ async def get_snapper_configs() -> Dict[str, Any]:
                 exit_code2, stdout2, _ = await run_command(
                     ["snapper", "-c", config_name, "get-config"],
                     timeout=10,
-                    check=False
+                    check=False,
                 )
 
                 if exit_code2 == 0:
@@ -708,7 +666,7 @@ async def create_snapshot(
     snap_type: str = "single",
     pre_number: Optional[int] = None,
     config: str = "root",
-    cleanup: str = "number"
+    cleanup: str = "number",
 ) -> Dict[str, Any]:
     logger.info(f"Creating snapshot: {description} (type={snap_type})")
 
@@ -729,16 +687,11 @@ async def create_snapshot(
     if cleanup:
         cmd.extend(["-c", cleanup])
 
-    exit_code, stdout, stderr = await run_command(
-        cmd,
-        timeout=30,
-        check=False
-    )
+    exit_code, stdout, stderr = await run_command(cmd, timeout=30, check=False)
 
     if exit_code != 0:
         return create_error_response(
-            "SnapshotError",
-            f"Failed to create snapshot: {stderr.strip()}"
+            "SnapshotError", f"Failed to create snapshot: {stderr.strip()}"
         )
 
     snapshot_id = stdout.strip()
@@ -758,15 +711,13 @@ async def delete_snapshot(snapshot_id: int, config: str = "root") -> Dict[str, A
         return create_error_response("NotSupported", "snapper is not installed.")
 
     exit_code, stdout, stderr = await run_command(
-        ["snapper", "-c", config, "delete", str(snapshot_id)],
-        timeout=30,
-        check=False
+        ["snapper", "-c", config, "delete", str(snapshot_id)], timeout=30, check=False
     )
 
     if exit_code != 0:
         return create_error_response(
             "SnapshotDeleteError",
-            f"Failed to delete snapshot {snapshot_id}: {stderr.strip()}"
+            f"Failed to delete snapshot {snapshot_id}: {stderr.strip()}",
         )
 
     logger.info(f"Snapshot deleted: {snapshot_id}")
@@ -778,7 +729,9 @@ async def delete_snapshot(snapshot_id: int, config: str = "root") -> Dict[str, A
 # ============================================================================
 
 
-async def analyze_btrfs(action: str, path: str = "/", config: str = "root") -> Dict[str, Any]:
+async def analyze_btrfs(
+    action: str, path: str = "/", config: str = "root"
+) -> Dict[str, Any]:
     if action == "filesystem_info":
         return await get_filesystem_info(path)
     elif action == "filesystem_df":
@@ -806,8 +759,109 @@ async def analyze_btrfs(action: str, path: str = "/", config: str = "root") -> D
             "InvalidAction",
             f"Unknown action: {action}. Use one of: filesystem_info, filesystem_df, "
             "filesystem_usage, subvolumes, subvolume_info, device_stats, device_usage, "
-            "properties, scrub_status, snapshots, snapper_configs"
+            "properties, scrub_status, snapshots, snapper_configs",
         )
+
+
+async def _snapper_diff(snap1: int, snap2: int, config: str = "root") -> Dict[str, Any]:
+    """Compare two snapper snapshots with snapper diff."""
+    logger.info(f"snapper diff {snap1}..{snap2} (config={config})")
+    if not check_command_exists("snapper"):
+        return create_error_response("NotSupported", "snapper is not installed")
+    exit_code, stdout, stderr = await run_command(
+        ["snapper", "-c", config, "diff", str(snap1), ".." + str(snap2)],
+        timeout=30,
+        check=False,
+    )
+    if exit_code != 0:
+        return create_error_response("CommandError", f"snapper diff failed: {stderr}")
+    lines = [l.strip() for l in stdout.strip().splitlines() if l.strip()]
+    return {
+        "config": config,
+        "snap1": snap1,
+        "snap2": snap2,
+        "change_count": len(lines),
+        "changes": lines,
+    }
+
+
+async def _snapper_rollback(
+    snap_num: int, config: str = "root", dry: bool = False
+) -> Dict[str, Any]:
+    """Perform snapper rollback to a snapshot."""
+    logger.info(f"snapper rollback {snap_num} (config={config}, dry={dry})")
+    if not check_command_exists("snapper"):
+        return create_error_response("NotSupported", "snapper is not installed")
+
+    if dry:
+        exit_code, stdout, stderr = await run_command(
+            ["snapper", "-c", config, "status", str(snap_num), "..0"],
+            timeout=10,
+            check=False,
+        )
+        if exit_code != 0:
+            return create_error_response(
+                "CommandError", f"snapper status failed: {stderr}"
+            )
+        lines = [l.strip() for l in stdout.strip().splitlines() if l.strip()]
+        return {
+            "dry_run": True,
+            "config": config,
+            "snap_num": snap_num,
+            "changes_count": len(lines),
+            "changes": lines,
+            "message": f"Rollback preview for snapshot {snap_num}. {len(lines)} changes would be applied.",
+        }
+
+    exit_code, stdout, stderr = await run_command(
+        ["snapper", "-c", config, "rollback", str(snap_num)],
+        timeout=30,
+        check=False,
+    )
+    if exit_code != 0:
+        return create_error_response(
+            "CommandError", f"snapper rollback failed: {stderr}"
+        )
+    return {
+        "rolled_back": True,
+        "config": config,
+        "snap_num": snap_num,
+        "output": stdout.strip(),
+        "message": f"Rolled back to snapshot {snap_num}. The default subvolume has been set to the rollback snapshot. Reboot to apply changes.",
+    }
+
+
+async def _snapper_create_config(
+    name: str, subvolume: str, timeline: bool = True
+) -> Dict[str, Any]:
+    """Create a new snapper configuration."""
+    logger.info(f"snapper create-config {name} for {subvolume}")
+    if not check_command_exists("snapper"):
+        return create_error_response("NotSupported", "snapper is not installed")
+
+    cmd = ["snapper", "-c", name, "create-config", subvolume]
+    exit_code, stdout, stderr = await run_command(cmd, timeout=10, check=False)
+    if exit_code != 0:
+        return create_error_response(
+            "CommandError", f"snapper create-config failed: {stderr}"
+        )
+
+    if not timeline:
+        exit_code2, _, err2 = await run_command(
+            ["snapper", "-c", name, "set-config", "TIMELINE_CREATE=no"],
+            timeout=5,
+            check=False,
+        )
+        if exit_code2 != 0:
+            logger.warning(f"Failed to disable timeline: {err2}")
+
+    return {
+        "created": True,
+        "name": name,
+        "subvolume": subvolume,
+        "timeline_enabled": timeline,
+        "message": f"Snapper config '{name}' created for {subvolume}",
+    }
 
 
 async def manage_btrfs_snapshots(
@@ -817,7 +871,13 @@ async def manage_btrfs_snapshots(
     pre_number: Optional[int] = None,
     snapshot_id: Optional[int] = None,
     config: str = "root",
-    cleanup: str = "number"
+    cleanup: str = "number",
+    snap1: Optional[int] = None,
+    snap2: Optional[int] = None,
+    snap_num: Optional[int] = None,
+    name: Optional[str] = None,
+    subvolume: Optional[str] = None,
+    timeline: bool = True,
 ) -> Dict[str, Any]:
     if action == "list":
         return await list_snapshots(config)
@@ -826,25 +886,52 @@ async def manage_btrfs_snapshots(
     elif action == "create":
         if not description:
             return create_error_response(
-                "MissingArgument",
-                "description is required for create action"
+                "MissingArgument", "description is required for create action"
             )
-        return await create_snapshot(description, snap_type, pre_number, config, cleanup)
+        return await create_snapshot(
+            description, snap_type, pre_number, config, cleanup
+        )
     elif action == "delete":
         if snapshot_id is None:
             return create_error_response(
-                "MissingArgument",
-                "snapshot_id is required for delete action"
+                "MissingArgument", "snapshot_id is required for delete action"
             )
         return await delete_snapshot(snapshot_id, config)
+    elif action == "diff":
+        if snap1 is None or snap2 is None:
+            return create_error_response(
+                "MissingArgument", "snap1 and snap2 are required for diff action"
+            )
+        return await _snapper_diff(snap1, snap2, config)
+    elif action == "rollback":
+        if snap_num is None:
+            return create_error_response(
+                "MissingArgument", "snap_num is required for rollback action"
+            )
+        return await _snapper_rollback(snap_num, config, dry=False)
+    elif action == "rollback_dry":
+        if snap_num is None:
+            return create_error_response(
+                "MissingArgument", "snap_num is required for rollback_dry action"
+            )
+        return await _snapper_rollback(snap_num, config, dry=True)
+    elif action == "create_config":
+        if not name or not subvolume:
+            return create_error_response(
+                "MissingArgument",
+                "name and subvolume are required for create_config action",
+            )
+        return await _snapper_create_config(name, subvolume, timeline)
     else:
         return create_error_response(
             "InvalidAction",
-            f"Unknown action: {action}. Use one of: list, configs, create, delete"
+            f"Unknown action: {action}. Use one of: list, configs, create, delete, diff, rollback, rollback_dry, create_config",
         )
 
 
-async def manage_btrfs_scrub(action: str, path: str = "/", background: bool = True) -> Dict[str, Any]:
+async def manage_btrfs_scrub(
+    action: str, path: str = "/", background: bool = True
+) -> Dict[str, Any]:
     if action == "status":
         return await get_scrub_status(path)
     elif action == "start":
@@ -854,5 +941,5 @@ async def manage_btrfs_scrub(action: str, path: str = "/", background: bool = Tr
     else:
         return create_error_response(
             "InvalidAction",
-            f"Unknown action: {action}. Use one of: status, start, cancel"
+            f"Unknown action: {action}. Use one of: status, start, cancel",
         )
