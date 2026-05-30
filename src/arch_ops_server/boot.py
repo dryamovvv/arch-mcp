@@ -200,16 +200,10 @@ async def manage_boot(
       set_boot_order — permanently change BOOT_ORDER (use preset name or raw hex)
       next_boot      — set next boot device as one-time, reboot
     """
-    if not IS_ARCH:
-        return create_error_response(
-            "NotSupported",
-            f"manage_boot(action='{action}') requires Arch Linux running on physical RPi hardware.",
-        )
-
     if not check_command_exists("rpi-eeprom-config"):
         return create_error_response(
             "NotSupported",
-            "rpi-eeprom-config is not installed. Install with: sudo pacman -S rpi-eeprom",
+            "rpi-eeprom-config is not installed. Install it via your package manager (pacman -S rpi-eeprom, apt install rpi-eeprom, etc.).",
         )
 
     if action == "status":
