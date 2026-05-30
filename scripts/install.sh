@@ -24,15 +24,6 @@ for ext in zst xz; do
         systemctl status arch-ops-server.service --no-pager 2>/dev/null || echo "Check: systemctl status arch-ops-server"
         exit 0
     fi
-    URL="$BASE.pkg.tar.$ext"
-    if curl -fsSL -o "$TMP_PKG" "$URL"; then
-        echo "Downloaded prebuilt (any, .$ext). Installing..."
-        sudo pacman -U --noconfirm "$TMP_PKG"
-        rm -f "$TMP_PKG"
-        echo "Server status:"
-        systemctl status arch-ops-server.service --no-pager 2>/dev/null || echo "Check: systemctl status arch-ops-server"
-        exit 0
-    fi
 done
 
 # Build from source (all architectures fall through here if prebuilt unavailable)
