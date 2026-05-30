@@ -9,19 +9,26 @@ permissions:
   contents: write
 
 jobs:
-  build-and-release:
+  build-pkg:
+    name: Build .pkg.tar.zst (aarch64)
     runs-on: ubuntu-24.04-arm
+    container:
+      image: archlinux:latest
+      options: --privileged
 
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
       - name: Install build deps
         run: |
-          sudo apt-get update
-          sudo apt-get install -y libarchive-tools fakeroot pacman-package-manager python3 python-is-python3
-          curl -LsSf https://astral.sh/uv/install.sh | sh
-          echo "$HOME/.local/bin" >> $GITHUB_PATH
+          pacman -Syu --noconfirm
+          pacman -S --noconfirm base-devel git uv python
+
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Create build user
+        run: |
+          useradd -m builder
+          echo "builder ALL=(ALL) NOPASSWD: ALL" >> /etc/sudoers
 
       - name: Set version from tag
         run: |
@@ -31,16 +38,8 @@ jobs:
 
       - name: Build package
         run: |
-          cd packaging/arch
-          makepkg -sf --noconfirm --nodeps
-
-      - name: Rename with arch suffix
-        run: |
-          for f in packaging/arch/arch-ops-server-*.pkg.tar.*; do
-            base="${f%.pkg.tar.*}"
-            ext="${f##*.}"
-            mv "$f" "${base}-aarch64.pkg.tar.${ext}"
-          done
+          chown -R builder:builder .
+          su builder -c "cd packaging/arch && makepkg -sf --noconfirm"
 
       - name: Upload to Release
         uses: softprops/action-gh-release@v2
