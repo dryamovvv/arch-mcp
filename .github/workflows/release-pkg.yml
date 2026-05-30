@@ -19,7 +19,7 @@ jobs:
       - name: Install build deps
         run: |
           sudo apt-get update
-          sudo apt-get install -y fakeroot pacman-package-manager python3
+          sudo apt-get install -y fakeroot pacman-package-manager python3 python-is-python3
           curl -LsSf https://astral.sh/uv/install.sh | sh
           echo "$HOME/.local/bin" >> $GITHUB_PATH
 
@@ -32,7 +32,7 @@ jobs:
       - name: Build package
         run: |
           cd packaging/arch
-          makepkg -sf --noconfirm
+          makepkg -sf --noconfirm --nodeps
 
       - name: Rename with arch suffix
         run: |
