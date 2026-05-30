@@ -36,13 +36,14 @@ jobs:
 
       - name: Rename with arch suffix
         run: |
-          for f in packaging/arch/arch-ops-server-*.pkg.tar.zst; do
-            base="${f%.pkg.tar.zst}"
-            mv "$f" "${base}-aarch64.pkg.tar.zst"
+          for f in packaging/arch/arch-ops-server-*.pkg.tar.*; do
+            base="${f%.pkg.tar.*}"
+            ext="${f##*.}"
+            mv "$f" "${base}-aarch64.pkg.tar.${ext}"
           done
 
       - name: Upload to Release
         uses: softprops/action-gh-release@v2
         with:
-          files: packaging/arch/arch-ops-server-*.pkg.tar.zst
+          files: packaging/arch/arch-ops-server-*.pkg.tar.*
           fail_on_unmatched_files: true
