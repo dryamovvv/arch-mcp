@@ -11,7 +11,19 @@
 
 Сервер должен работать на той машине, которой управляем (RPi5, десктоп, сервер). Не на клиенте AI.
 
-### Arch Linux (pacman)
+### uvx (любая система, universal wheel)
+
+```bash
+uvx --from https://github.com/dryamovvv/arch-mcp/releases/latest/download/arch_ops_server-3.4.3-py3-none-any.whl arch-ops-server
+```
+
+Или установка как инструмент:
+
+```bash
+uv tool install https://github.com/dryamovvv/arch-mcp/releases/latest/download/arch_ops_server-3.4.3-py3-none-any.whl
+```
+
+### Arch Linux (pacman) — systemd service included
 
 Готовый пакет из GitHub Releases:
 
