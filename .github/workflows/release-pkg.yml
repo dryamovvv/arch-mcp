@@ -11,12 +11,9 @@ permissions:
 jobs:
   build-pkg:
     name: Build .pkg.tar.zst (aarch64)
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04-arm
 
     steps:
-      - name: Set up QEMU
-        uses: docker/setup-qemu-action@v3
-
       - name: Checkout code
         uses: actions/checkout@v4
 
@@ -26,9 +23,9 @@ jobs:
           VER="${TAG#v}"
           echo "VER=$VER" >> $GITHUB_ENV
 
-      - name: Build aarch64 package
+      - name: Build aarch64 package in Docker
         run: |
-          docker run --rm --platform linux/arm64 \
+          docker run --rm \
             -v $PWD:/workspace -w /workspace \
             archlinux:latest \
             bash -c "
