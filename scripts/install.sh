@@ -14,7 +14,7 @@ BASE="https://github.com/$REPO/releases/download/$LATEST_TAG/arch-ops-server-${V
 
 echo "Trying prebuilt package arch-ops-server $VER ($ARCH)..."
 
-for ext in zst xz; do
+for ext in zst xz gz; do
     URL="$BASE-$ARCH.pkg.tar.$ext"
     if curl -fsSL -o "$TMP_PKG" "$URL"; then
         echo "Downloaded prebuilt ($ARCH, .$ext). Installing..."
