@@ -38,7 +38,13 @@ else
     TMP_DIR=$(mktemp -d)
     git clone "https://github.com/$REPO.git" "$TMP_DIR"
     cd "$TMP_DIR/packaging/arch"
-    makepkg -si --noconfirm
+    makepkg -s --noconfirm
+    PACKAGE=$(find . -name "arch-ops-server-*.pkg.tar.xz" | head -1)
+    if [ -z "$PACKAGE" ]; then
+        echo "ERROR: Package build failed"
+        exit 1
+    fi
+    sudo pacman -U --noconfirm "$PACKAGE"
     rm -rf "$TMP_DIR"
     echo "Done. Built and installed from source."
 fi
