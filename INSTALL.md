@@ -46,27 +46,6 @@ makepkg -si
 - `/usr/bin/arch-ops-server-http` — HTTP сервер (:8080)
 - Systemd сервис `arch-ops-server.service` (включён и запущен)
 
-### Debian / Ubuntu (.deb)
-
-Готовый пакет из GitHub Releases:
-
-```bash
-curl -fsSL https://raw.githubusercontent.com/dryamovvv/arch-mcp/master/scripts/install-deb.sh | bash
-```
-
-Или собрать локально:
-
-```bash
-git clone https://github.com/dryamovvv/arch-mcp.git
-cd arch-mcp/packaging/debian
-sudo bash build-deb.sh
-sudo apt install ./dist/arch-ops-server_*.deb
-```
-
-Сборка: `packaging/debian/build-deb.sh`
-
-Что ставит: то же, что и Arch-пакет (см. выше).
-
 ---
 
 ## 2. Установка skills и commands в твою конфигурацию
