@@ -3,20 +3,29 @@ set -euo pipefail
 
 REPO="dryamovvv/arch-mcp"
 ARCH=$(uname -m)
-TMP_PKG="/tmp/arch-ops-server.pkg.tar.xz"
-PACKAGE_URL_PATH="arch-ops-server-${VER:-unknown}-1-any.pkg.tar.xz"
+TMP_PKG="/tmp/arch-ops-server.pkg.tar.zst"
 
 echo "arch-ops-server installer for Arch Linux"
 echo "Architecture: $ARCH"
 
 LATEST_TAG=$(curl -fsSL "https://api.github.com/repos/$REPO/releases/latest" | python3 -c "import sys,json; print(json.load(sys.stdin)['tag_name'])")
 VER="${LATEST_TAG#v}"
-URL="https://github.com/$REPO/releases/download/$LATEST_TAG/arch-ops-server-${VER}-1-any.pkg.tar.xz"
+URL_ZST="https://github.com/$REPO/releases/download/$LATEST_TAG/arch-ops-server-${VER}-1-any.pkg.tar.zst"
+URL_XZ="https://github.com/$REPO/releases/download/$LATEST_TAG/arch-ops-server-${VER}-1-any.pkg.tar.xz"
 
 echo "Trying prebuilt package arch-ops-server $VER..."
 
-if curl -fsSL -o "$TMP_PKG" "$URL"; then
-    echo "Downloaded prebuilt package."
+if curl -fsSL -o "$TMP_PKG" "$URL_ZST"; then
+    echo "Downloaded prebuilt package (.zst)."
+    echo "Installing..."
+    sudo pacman -U --noconfirm "$TMP_PKG" || {
+        echo "Install failed. Try building from source:"
+        echo "  git clone https://github.com/$REPO.git && cd arch-mcp/packaging/arch && makepkg -si"
+        exit 1
+    }
+    rm -f "$TMP_PKG"
+elif curl -fsSL -o "$TMP_PKG" "$URL_XZ"; then
+    echo "Downloaded prebuilt package (.xz)."
     echo "Installing..."
     sudo pacman -U --noconfirm "$TMP_PKG" || {
         echo "Install failed. Try building from source:"
@@ -39,7 +48,7 @@ else
     git clone "https://github.com/$REPO.git" "$TMP_DIR"
     cd "$TMP_DIR/packaging/arch"
     makepkg -s --noconfirm
-    PACKAGE=$(find . -name "arch-ops-server-*.pkg.tar.xz" | head -1)
+    PACKAGE=$(find . -name "arch-ops-server-*.pkg.tar.*" | head -1)
     if [ -z "$PACKAGE" ]; then
         echo "ERROR: Package build failed"
         exit 1
