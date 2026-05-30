@@ -10,8 +10,18 @@ permissions:
 
 jobs:
   build-pkg:
-    name: Build .pkg.tar.xz
-    runs-on: ubuntu-latest
+    name: Build .pkg.tar.zst (${{ matrix.arch }})
+    strategy:
+      matrix:
+        include:
+          - arch: x86_64
+            runs-on: ubuntu-latest
+            platform: linux/amd64
+          - arch: aarch64
+            runs-on: ubuntu-24.04-arm
+            platform: linux/arm64
+
+    runs-on: ${{ matrix.runs-on }}
     container:
       image: archlinux:latest
       options: --privileged
@@ -40,6 +50,13 @@ jobs:
         run: |
           chown -R builder:builder .
           su builder -c "cd packaging/arch && makepkg -sf --noconfirm"
+
+      - name: Rename package with arch suffix
+        run: |
+          for f in packaging/arch/arch-ops-server-*.pkg.tar.zst; do
+            base="${f%.pkg.tar.zst}"
+            mv "$f" "${base}-${{ matrix.arch }}.pkg.tar.zst"
+          done
 
       - name: Upload to Release
         uses: softprops/action-gh-release@v2
