@@ -9,26 +9,19 @@ permissions:
   contents: write
 
 jobs:
-  build-pkg:
-    name: Build .pkg.tar.zst (aarch64)
+  build-and-release:
     runs-on: ubuntu-24.04-arm
-    container:
-      image: archlinux:latest
-      options: --privileged
 
     steps:
-      - name: Install build deps
-        run: |
-          pacman -Syu --noconfirm
-          pacman -S --noconfirm base-devel git uv python
-
-      - name: Checkout code
+      - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Create build user
+      - name: Install build deps
         run: |
-          useradd -m builder
-          echo "builder ALL=(ALL) NOPASSWD: ALL" >> /etc/sudoers
+          sudo apt-get update
+          sudo apt-get install -y fakeroot pacman-package-manager python3
+          curl -LsSf https://astral.sh/uv/install.sh | sh
+          echo "$HOME/.local/bin" >> $GITHUB_PATH
 
       - name: Set version from tag
         run: |
@@ -38,8 +31,8 @@ jobs:
 
       - name: Build package
         run: |
-          chown -R builder:builder .
-          su builder -c "cd packaging/arch && makepkg -sf --noconfirm"
+          cd packaging/arch
+          makepkg -sf --noconfirm
 
       - name: Rename with arch suffix
         run: |
