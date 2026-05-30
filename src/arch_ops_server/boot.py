@@ -79,12 +79,34 @@ async def _get_eeprom_config() -> Dict[str, str]:
 
 
 async def _run_eeprom_update(key: str, value: str) -> Dict[str, Any]:
-    """Update a single key in the EEPROM config."""
+    """Update a single key in the EEPROM config via temp file."""
+    exit_code, stdout, stderr = await run_command(
+        ["rpi-eeprom-config"],
+        timeout=10,
+        check=False,
+    )
+    if exit_code != 0:
+        return create_error_response("CommandError", f"Failed to read EEPROM: {stderr}")
+
+    import tempfile
+    with tempfile.NamedTemporaryFile(mode="w", suffix=".txt", delete=False) as tf:
+        for line in stdout.strip().splitlines():
+            line = line.strip()
+            if line.startswith(f"{key}="):
+                tf.write(f"{key}={value}\n")
+            elif line and not line.startswith("#"):
+                tf.write(f"{line}\n")
+            elif line.startswith("#"):
+                tf.write(f"{line}\n")
+        tf.flush()
+        tmp_path = tf.name
+
     exit_code, _, stderr = await run_command(
-        ["rpi-eeprom-config", "--apply", f"{key}={value}"],
+        ["rpi-eeprom-config", "--apply", tmp_path],
         timeout=15,
         check=False,
     )
+    Path(tmp_path).unlink(missing_ok=True)
     if exit_code != 0:
         return create_error_response("CommandError", f"Failed to update EEPROM: {stderr}")
     return {"ok": True}
