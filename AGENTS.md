@@ -28,7 +28,7 @@ No lint, typecheck, or format commands are configured. Do not fabricate them.
 - **Platform gating:** Arch-only tools check `IS_ARCH` (from `utils.py`). Non-Arch hosts get descriptive error messages, not crashes.
 - **Unified action pattern:** Many MCP tools use an `action` parameter to multiplex operations (e.g. `manage_orphans(action='list'|'remove')`, `query_file_ownership(mode='file_to_package'|'package_to_files'|'filename_search')`).
 - **Python target:** 3.11+ (`.python-version` says 3.13).
-- **CI:** GitHub Actions run only on `v*.*.*` tag pushes — publish to PyPI and GHCR. No PR/test CI.
+- **CI:** GitHub Actions run only on `v*.*.*` tag pushes — publish to GitHub Releases and GHCR. No PR/test CI.
 
 ## Testing
 

@@ -55,14 +55,6 @@ sudo apt install ./dist/arch-ops-server_*.deb
 
 Что ставит: то же, что и Arch-пакет (см. выше).
 
-### Python (любая система, без systemd)
-
-```bash
-pip install arch-ops-server
-# или
-uvx arch-ops-server
-```
-
 ---
 
 ## 2. Установка skills и commands в твою конфигурацию
@@ -107,8 +99,7 @@ cp .agents/skills/arch-report/SKILL.md ~/.claude/skills/arch-report/SKILL.md
 {
   "mcpServers": {
     "arch-linux": {
-      "command": "uvx",
-      "args": ["arch-ops-server"]
+      "command": "arch-ops-server"
     }
   }
 }

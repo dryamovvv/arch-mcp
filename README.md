@@ -1,18 +1,10 @@
 # Arch Linux MCP Server
 
-[![PyPI Downloads](https://static.pepy.tech/personalized-badge/arch-ops-server?period=total&units=INTERNATIONAL_SYSTEM&left_color=BLUE&right_color=BLACK&left_text=PyPi+Downloads)](https://pepy.tech/projects/arch-ops-server)
-
-<a href="https://glama.ai/mcp/servers/@nihalxkumar/arch-mcp">
-  <img width="380" height="200" src="https://glama.ai/mcp/servers/@nihalxkumar/arch-mcp/badge" />
-</a>
-
 **Disclaimer:** Unofficial community project, not affiliated with Arch Linux.
 
 A [Model Context Protocol](https://modelcontextprotocol.io/) (MCP) server that bridges AI assistants with the Arch Linux ecosystem. Enables intelligent, safe, and efficient access to the Arch Wiki, AUR, and official repositories for AI-assisted Arch Linux usage on Arch and non-Arch systems.
 
 Leverage AI to get digestible, structured results that are ready for follow up questions and actions.
-
-📖 [Complete Documentation with Comfy Guides](https://nxk.mintlify.app/arch-mcp)
 
 ## Sneak Peak into what's available
 
@@ -197,13 +189,7 @@ Direct access to Arch ecosystem data via custom URI schemes:
 ### Prerequisites
 
 - Python 3.11+
-- [uv](https://github.com/astral-sh/uv) (recommended) or pip
-
-### Quick Install with `uvx`
-
-```bash
-uvx arch-ops-server
-```
+- [uv](https://github.com/astral-sh/uv) (recommended)
 
 ### Arch Linux (pacman) — systemd service included
 
@@ -278,9 +264,7 @@ Opencode:
 
 ## Contributing
 
-Contributions are greatly appreciated. Please feel free to submit a pull request or open an issue and help make things better for everyone.
-
-[Contributing Guide](https://nxk.mintlify.app/arch-mcp/contributing)
+Contributions are greatly appreciated. Please feel free to submit a pull request or open an issue.
 
 ## License
 
