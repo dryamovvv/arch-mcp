@@ -19,7 +19,7 @@ jobs:
       - name: Install build deps
         run: |
           sudo apt-get update
-          sudo apt-get install -y fakeroot pacman-package-manager python3 python-is-python3
+          sudo apt-get install -y bsdtar fakeroot pacman-package-manager python3 python-is-python3
           curl -LsSf https://astral.sh/uv/install.sh | sh
           echo "$HOME/.local/bin" >> $GITHUB_PATH
 
