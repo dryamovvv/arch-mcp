@@ -10,49 +10,42 @@ permissions:
 
 jobs:
   build-pkg:
-    name: Build .pkg.tar.zst (${{ matrix.arch }})
-    strategy:
-      matrix:
-        include:
-          - arch: aarch64
-            runs-on: ubuntu-24.04-arm
-            platform: linux/arm64
-
-    runs-on: ${{ matrix.runs-on }}
-    container:
-      image: archlinux:latest
-      options: --privileged
+    name: Build .pkg.tar.zst (aarch64)
+    runs-on: ubuntu-latest
 
     steps:
-      - name: Install build deps
-        run: |
-          pacman -Syu --noconfirm
-          pacman -S --noconfirm base-devel git uv python
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
 
       - name: Checkout code
         uses: actions/checkout@v4
-
-      - name: Create build user
-        run: |
-          useradd -m builder
-          echo "builder ALL=(ALL) NOPASSWD: ALL" >> /etc/sudoers
 
       - name: Set version from tag
         run: |
           TAG="${GITHUB_REF#refs/tags/}"
           VER="${TAG#v}"
-          sed -i "s/^pkgver=.*/pkgver=$VER/" packaging/arch/PKGBUILD
+          echo "VER=$VER" >> $GITHUB_ENV
 
-      - name: Build package
+      - name: Build aarch64 package
         run: |
-          chown -R builder:builder .
-          su builder -c "cd packaging/arch && makepkg -sf --noconfirm"
+          docker run --rm --platform linux/arm64 \
+            -v $PWD:/workspace -w /workspace \
+            archlinux:latest \
+            bash -c "
+              pacman -Syu --noconfirm &&
+              pacman -S --noconfirm base-devel git uv python &&
+              useradd -m builder &&
+              echo 'builder ALL=(ALL) NOPASSWD: ALL' >> /etc/sudoers &&
+              sed -i \"s/^pkgver=.*/pkgver=$VER/\" packaging/arch/PKGBUILD &&
+              chown -R builder:builder . &&
+              su builder -c 'cd packaging/arch && makepkg -sf --noconfirm'
+            "
 
-      - name: Rename package with arch suffix
+      - name: Rename with arch suffix
         run: |
           for f in packaging/arch/arch-ops-server-*.pkg.tar.zst; do
             base="${f%.pkg.tar.zst}"
-            mv "$f" "${base}-${{ matrix.arch }}.pkg.tar.zst"
+            mv "$f" "${base}-aarch64.pkg.tar.zst"
           done
 
       - name: Upload to Release
