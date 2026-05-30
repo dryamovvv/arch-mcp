@@ -1540,9 +1540,6 @@ async def call_tool(name: str, arguments: dict[str, Any]) -> list[TextContent | 
         return [TextContent(type="text", text=json.dumps(result, indent=2))]
 
     elif name == "manage_boot":
-        if not IS_ARCH:
-            return [TextContent(type="text", text=create_platform_error_message("manage_boot"))]
-
         action = arguments["action"]
         order = arguments.get("order", None)
         device = arguments.get("device", None)
