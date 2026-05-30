@@ -22,19 +22,33 @@ Test a new release (or pre-release) of the arch-mcp MCP server end-to-end.
 
 ## Test workflow
 
-### Phase 1 — Install
+### Phase 1 — Clean install
 
-1. SSH to the test machine
-2. Clone the repo (or pull latest) — use the branch/commit under test
-3. Install the server:
-   - **Arch**: `cd packaging/arch && makepkg -si` (or `bash scripts/install.sh`)
-   - **Debian**: `cd packaging/debian && sudo bash build-deb.sh`
-4. Verify installation:
-   ```bash
-   which arch-ops-server-http
-   systemctl status arch-ops-server
-   ```
-5. Fix PYTHONPATH if needed (see known issues below)
+**All tests start from a clean slate.** Remove any previous installation first, then install fresh.
+
+```bash
+# 1. Remove old package if present
+sudo pacman -R --noconfirm arch-ops-server 2>/dev/null || true
+sudo rm -rf /opt/arch-ops-server /etc/systemd/system/arch-ops-server.service
+sudo systemctl daemon-reload
+
+# 2. Clean install via curl
+curl -fsSL https://raw.githubusercontent.com/dryamovvv/arch-mcp/master/scripts/install.sh | bash
+
+# 3. Verify service is running
+systemctl status arch-ops-server --no-pager
+
+# 4. Check for errors in journal
+journalctl -u arch-ops-server --no-pager -n 20 | grep -i "error\|fail\|traceback" || echo "NO ERRORS"
+```
+
+> **CRITICAL:** If `journalctl` shows ANY errors (ModuleNotFoundError, ImportError, etc.) — stop and fix before proceeding. Service must be green and error-free.
+
+> **PYTHONPATH fix:** If `ModuleNotFoundError: No module named 'arch_ops_server'` — apply:
+> ```bash
+> printf '[Service]\nEnvironment=PYTHONPATH=/opt/arch-ops-server/vendor\n' | sudo tee /etc/systemd/system/arch-ops-server.service.d/override.conf
+> sudo systemctl daemon-reload && sudo systemctl restart arch-ops-server
+> ```
 
 ### Phase 2 — Tool-by-tool verification (28 tools)
 
@@ -184,6 +198,22 @@ curl -s -X POST http://localhost:8080/mcp \
 
 ## Verdict
 ✅ READY FOR RELEASE / ❌ BLOCKED — <reason>
+```
+
+### Phase 6 — Cleanup
+
+After tests complete (pass or fail), remove the test package to leave the machine clean:
+
+```bash
+sudo pacman -R --noconfirm arch-ops-server
+sudo rm -rf /opt/arch-ops-server /etc/systemd/system/arch-ops-server.service /etc/systemd/system/arch-ops-server.service.d
+sudo systemctl daemon-reload
+```
+
+Confirm cleanup:
+```bash
+systemctl status arch-ops-server 2>&1 | grep "could not be found" && echo "CLEAN"
+pacman -Q arch-ops-server 2>&1 | grep "not found" && echo "PACKAGE REMOVED"
 ```
 
 ## Known issues
