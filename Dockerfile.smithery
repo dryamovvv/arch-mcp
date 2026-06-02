@@ -1,19 +1,22 @@
-FROM python:3.12-slim-bookworm
+# syntax=docker/dockerfile:1
+FROM --platform=$BUILDPLATFORM rust:alpine AS builder
+RUN apk add --no-cache musl-dev
+
+ARG TARGETPLATFORM
+RUN case "$TARGETPLATFORM" in \
+    linux/amd64) TRIPLE="x86_64-unknown-linux-musl"; FEATURES="http" ;; \
+    linux/arm64) TRIPLE="aarch64-unknown-linux-musl"; FEATURES="http" ;; \
+    *) echo "Unsupported: $TARGETPLATFORM"; exit 1 ;; \
+    esac && echo "$TRIPLE $FEATURES" > /build-info && rustup target add "$TRIPLE"
 
 WORKDIR /app
-
-ENV PYTHONDONTWRITEBYTECODE=1
-ENV PYTHONUNBUFFERED=1
-
-RUN pip install uv
-
 COPY . .
+RUN read -r TRIPLE FEATURES < /build-info && \
+    cargo build --release --target "$TRIPLE" --features "$FEATURES" && \
+    cp "target/$TRIPLE/release/arch-opsd" /arch-opsd
 
-# Install package with HTTP dependencies for Smithery
-RUN uv pip install --system ".[http]"
-
-# Expose port for HTTP server (Smithery sets PORT env var, default 8080)
+FROM alpine:3.21
+RUN apk add --no-cache ca-certificates
 EXPOSE 8080
-
-# Run HTTP server for Smithery
-CMD ["arch-ops-server-http"]
+COPY --from=builder /arch-opsd /usr/local/bin/arch-opsd
+CMD ["arch-opsd", "http"]

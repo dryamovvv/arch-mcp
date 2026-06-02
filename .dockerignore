@@ -1,18 +1,6 @@
-# Git files
+target/
 .git/
-.gitignore
-
-# Python cache
+*.py
 __pycache__/
-*.pyc
-*.pyo
-*.pyd
-
-# IDE/Editor files
-.vscode/
-.idea/
-
-# Docker files
-Dockerfile
-.dockerignore
-docker-compose.yml
+*.egg-info/
+.venv/
