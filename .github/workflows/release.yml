@@ -9,37 +9,46 @@ permissions:
   contents: write
 
 jobs:
-  build-and-release:
+  build-aarch64:
     runs-on: ubuntu-24.04-arm
     steps:
       - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
 
-      - name: Install Rust toolchain
-        uses: dtolnay/rust-toolchain@stable
-
-      - name: Build release binary (default — STDIO)
-        run: cargo build --release
-
-      - name: Build release binary (http — STDIO + HTTP/SSE)
-        run: cargo build --release --features http
-
-      - name: Prepare release assets
-        run: |
+      - run: cargo build --release
+      - run: |
           mkdir -p dist
-          cp target/release/arch-opsd dist/arch-opsd-linux-aarch64-http
-
-      - name: Build release binary (default — STDIO only)
-        run: cargo build --release
-
-      - name: Finalize release assets
-        run: |
           cp target/release/arch-opsd dist/arch-opsd-linux-aarch64
+
+      - run: cargo build --release --features http
+      - run: |
+          cp target/release/arch-opsd dist/arch-opsd-linux-aarch64-http
           strip dist/arch-opsd-linux-aarch64
           strip dist/arch-opsd-linux-aarch64-http
 
-      - name: Upload to GitHub Release
-        uses: softprops/action-gh-release@v2
+      - uses: softprops/action-gh-release@v2
         with:
           files: dist/*
-          fail_on_unmatched_files: true
-          generate_release_notes: true
+          fail_on_unmatched_files: false
+
+  build-x86_64:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+
+      - run: cargo build --release
+      - run: |
+          mkdir -p dist
+          cp target/release/arch-opsd dist/arch-opsd-linux-x86_64
+
+      - run: cargo build --release --features http
+      - run: |
+          cp target/release/arch-opsd dist/arch-opsd-linux-x86_64-http
+          strip dist/arch-opsd-linux-x86_64
+          strip dist/arch-opsd-linux-x86_64-http
+
+      - uses: softprops/action-gh-release@v2
+        with:
+          files: dist/*
+          fail_on_unmatched_files: false

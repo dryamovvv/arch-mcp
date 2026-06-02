@@ -118,7 +118,7 @@ A [Model Context Protocol](https://modelcontextprotocol.io/) (MCP) server that b
 ### Arch Linux (binary from GitHub Releases)
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/dryamovvv/arch-mcp/master/scripts/install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/dryamovvv/arch-mcp/rust/scripts/install.sh | sudo bash
 ```
 
 ### Build from source
