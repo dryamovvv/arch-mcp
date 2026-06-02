@@ -29,11 +29,9 @@ No lint, typecheck, format, or test commands are configured. Do not fabricate th
 - **Platform gating:** Arch-only tools check `is_arch_linux()` (reads `/etc/arch-release`). Non-Arch hosts get descriptive error messages, not crashes.
 - **Unified action pattern:** Many MCP tools use an `action` parameter to multiplex operations (e.g. `manage_orphans(action='list'|'remove')`, `query_file_ownership(mode='file_to_package'|'package_to_files'|'filename_search')`).
 - **Rust target:** edition 2021, tokio async runtime, serde_json for JSON-RPC.
-- **CI:** GitHub Actions run only on `v*.*.*` tag pushes — publish to GitHub Releases and GHCR. No PR/test CI.
+- **CI:** GitHub Actions run on `v*.*.*` tag pushes — publish to GitHub Releases and GHCR. `docs.yml` deploys mkdocs to GitHub Pages on main/rust branch pushes.
 
 ## Testing
 
-- Pytest with `pytest-asyncio` in `auto` mode. Use `await` freely in test functions.
-- Tests mock external deps (httpx, subprocess, file I/O). No real Arch system needed.
-- Arch-gated tests use `@pytest.mark.skipif(not IS_ARCH, ...)`.
-- Standalone HTTP integration test: `python test_http_server.py` (expects server on localhost:8080).
+- No test framework configured yet.
+- Test by building with `cargo build --release` and running on target hardware.
