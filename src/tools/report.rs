@@ -38,31 +38,25 @@ impl ToolHandler for GenerateReport {
         let mut sections: Vec<String> = Vec::new();
         sections.push("# Отчёт о состоянии системы\n".into());
 
-        match action {
-            "full" | "system" => {
-                sections.push(system_section().await);
-            }
-            _ => {}
+        if action == "full" || action == "system" {
+            sections.push(system_section().await);
         }
 
         if is_arch_linux() {
-            match action {
-                "full" | "packages" => {
-                    sections.push(packages_section().await);
-                }
-                "full" | "storage" => {
-                    sections.push(storage_section().await);
-                }
-                "full" | "mirrors" => {
-                    sections.push(mirrors_section().await);
-                }
-                "full" | "config" => {
-                    sections.push(config_section().await);
-                }
-                "full" | "btrfs" => {
-                    sections.push(btrfs_section().await);
-                }
-                _ => {}
+            if action == "full" || action == "packages" {
+                sections.push(packages_section().await);
+            }
+            if action == "full" || action == "storage" {
+                sections.push(storage_section().await);
+            }
+            if action == "full" || action == "mirrors" {
+                sections.push(mirrors_section().await);
+            }
+            if action == "full" || action == "config" {
+                sections.push(config_section().await);
+            }
+            if action == "full" || action == "btrfs" {
+                sections.push(btrfs_section().await);
             }
         }
 

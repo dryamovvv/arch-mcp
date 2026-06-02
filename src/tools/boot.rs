@@ -94,19 +94,19 @@ fn boot_order_preset(name: &str) -> Option<&'static str> {
 
 fn decode_boot_order(hex: &str) -> String {
     let clean = hex.trim_start_matches("0x").trim();
-    let devices: Vec<&str> = clean
+    let devices: Vec<String> = clean
         .chars()
         .filter_map(|c| match c {
-            '1' => Some("SD"),
-            '2' => Some("NVMe"),
-            '3' => Some("USB"),
-            '4' => Some("SD (alt)"),
-            '5' => Some("NVMe (alt)"),
-            '6' => Some("USB (alt)"),
-            'e' => Some("EEPROM"),
-            'f' => Some("Restart"),
+            '1' => Some("SD".into()),
+            '2' => Some("NVMe".into()),
+            '3' => Some("USB".into()),
+            '4' => Some("SD (alt)".into()),
+            '5' => Some("NVMe (alt)".into()),
+            '6' => Some("USB (alt)".into()),
+            'e' => Some("EEPROM".into()),
+            'f' => Some("Restart".into()),
             '0' => None,
-            _ => Some(&c.to_string()),
+            _ => Some(c.to_string()),
         })
         .collect();
 
