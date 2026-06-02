@@ -7,7 +7,6 @@ use axum::{
     Json, Router,
 };
 use serde_json::Value;
-use std::collections::HashMap;
 use std::convert::Infallible;
 use std::sync::Arc;
 use tokio::sync::broadcast;
