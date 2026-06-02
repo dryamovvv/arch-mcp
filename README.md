@@ -13,7 +13,7 @@ A [Model Context Protocol](https://modelcontextprotocol.io/) (MCP) server that b
 
 ## Tools
 
-### Fully Implemented (18 tools)
+### Fully Implemented (26 tools)
 
 | Tool                        | Description                                     | Platform |
 | --------------------------- | ----------------------------------------------- | -------- |
@@ -38,9 +38,9 @@ A [Model Context Protocol](https://modelcontextprotocol.io/) (MCP) server that b
 | `analyze_pacman_conf`       | pacman.conf analysis (full/ignored/parallel)    | Arch     |
 | `analyze_makepkg_conf`      | makepkg.conf CFLAGS, MAKEFLAGS extraction       | Arch     |
 
-### Stubs (30 tools — return "not yet implemented")
+### Stubs (22 tools — return "not yet implemented")
 
-`run_system_health_check`, `query_package_history`, `manage_logs`, `manage_journal_gateway`, `analyze_btrfs`, `manage_btrfs_snapshots`, `manage_btrfs_scrub`, `manage_boot`, `generate_report`, `verify_boot_artifacts`, `verify_service_health`, `verify_homectl_user`, `compare_fstab`, `compare_packages`, `check_security_posture`, `check_rpi_hardware`, `benchmark_quick`, `manage_luks`, `manage_firewall`, `manage_hardware`, `manage_boot_config`, `manage_backup`, `manage_recovery`, `manage_telegram_unlock`
+`verify_boot_artifacts`, `verify_service_health`, `verify_homectl_user`, `compare_fstab`, `compare_packages`, `check_security_posture`, `check_rpi_hardware`, `benchmark_quick`, `manage_luks`, `manage_firewall`, `manage_hardware`, `manage_boot_config`, `manage_backup`, `manage_recovery`, `manage_telegram_unlock`
 
 ## Installation
 
