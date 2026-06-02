@@ -1,165 +1,104 @@
 # INSTALL.md — для AI-агентов
 
-Ты устанавливаешь arch-linux MCP сервер и сопутствующие файлы. Установка двухкомпонентная:
+Ты устанавливаешь `arch-opsd` (Rust MCP сервер для Arch Linux) на целевую машину.
 
-1. **MCP сервер** — на целевую машину (та, которой будем управлять)
-2. **Skills и commands** — в твою конфигурацию (локально, чтобы ты знал что умеешь)
+## 1. Установка сервера на целевую машину
 
----
-
-## 1. Установка MCP сервера на целевую машину
-
-Сервер должен работать на той машине, которой управляем (RPi5, десктоп, сервер). Не на клиенте AI.
-
-### uvx (любая система, universal wheel)
+### Быстрая установка (pre-built бинарник)
 
 ```bash
-uvx --from https://github.com/dryamovvv/arch-mcp/releases/latest/download/arch_ops_server-3.4.3-py3-none-any.whl arch-ops-server
+# Скачать последний релиз (aarch64 или x86_64)
+curl -fsSL https://github.com/dryamovvv/arch-mcp/releases/latest/download/arch-opsd-linux-aarch64 -o /usr/local/bin/arch-opsd
+chmod +x /usr/local/bin/arch-opsd
 ```
 
-Или установка как инструмент:
-
-```bash
-uv tool install https://github.com/dryamovvv/arch-mcp/releases/latest/download/arch_ops_server-3.4.3-py3-none-any.whl
-```
-
-### Arch Linux (pacman) — systemd service included
-
-Готовый пакет из GitHub Releases:
-
-```bash
-curl -fsSL https://raw.githubusercontent.com/dryamovvv/arch-mcp/master/scripts/install.sh | bash
-```
-
-Или собрать локально (рекомендуется для RPi5 aarch64):
+### Сборка из исходников
 
 ```bash
 git clone https://github.com/dryamovvv/arch-mcp.git
-cd arch-mcp/packaging/arch
-makepkg -si
+cd arch-mcp
+cargo build --release
+cp target/release/arch-opsd /usr/local/bin/
 ```
 
-Пакет: `packaging/arch/PKGBUILD`
+### Кросс-компиляция для RPi5 (aarch64)
 
-Что ставит:
-- `/usr/bin/arch-ops-server` — STDIO сервер
-- `/usr/bin/arch-ops-server-http` — HTTP сервер (:8080)
-- Systemd сервис `arch-ops-server.service` (включён и запущен)
+```bash
+# На x86_64 машине:
+cargo install cross
+cross build --release --target aarch64-unknown-linux-musl
+# Бинарник: target/aarch64-unknown-linux-musl/release/arch-opsd
+# Скопировать на RPi5
+```
 
----
+### Systemd сервис (опционально)
+
+```ini
+# /etc/systemd/system/arch-opsd.service
+[Unit]
+Description=Arch MCP Server (arch-opsd)
+
+[Service]
+ExecStart=/usr/local/bin/arch-opsd stdio
+Restart=always
+User=root
+
+[Install]
+WantedBy=multi-user.target
+```
+
+```bash
+systemctl daemon-reload
+systemctl enable --now arch-opsd
+```
 
 ## 2. Установка skills и commands в твою конфигурацию
 
-Skills учат тебя пользоваться сервером. Commands — готовые сценарии для запуска.
-
-### Что куда копировать
-
-| Источник | Назначение | Куда |
-|----------|-----------|------|
-| `.agents/skills/arch-system/SKILL.md` | Управление системой RPi (30+ инструментов) | `skills/arch-system.md` |
-| `.agents/skills/arch-report/SKILL.md` | Генерация отчётов о здоровье системы | `skills/arch-report.md` |
-| `.agents/commands/run-audit.md` | Команда: полный аудит системы | `commands/run-audit.md` |
-| `.agents/commands/manage-boot.md` | Команда: настройка загрузчика RPi | `commands/manage-boot.md` |
-
-### Opencode
-
-```bash
-cp .agents/skills/arch-system/SKILL.md ~/.config/opencode/skills/arch-system.md
-cp .agents/skills/arch-report/SKILL.md ~/.config/opencode/skills/arch-report.md
-cp .agents/commands/run-audit.md ~/.config/opencode/commands/run-audit.md
-cp .agents/commands/manage-boot.md ~/.config/opencode/commands/manage-boot.md
-```
-
-### Claude Code
-
-```bash
-cp .agents/skills/arch-system/SKILL.md ~/.claude/skills/arch-system/SKILL.md
-cp .agents/skills/arch-report/SKILL.md ~/.claude/skills/arch-report/SKILL.md
-# commands — см. документацию Claude Code по custom slash commands
-```
-
-Если не знаешь куда класть — спроси пользователя где его конфигурация агента.
-
----
+| Источник | Куда |
+|----------|------|
+| `.agents/skills/arch-system/SKILL.md` | `skills/arch-system.md` |
+| `.agents/skills/arch-report/SKILL.md` | `skills/arch-report.md` |
+| `.agents/commands/run-audit.md` | `commands/run-audit.md` |
+| `.agents/commands/manage-boot.md` | `commands/manage-boot.md` |
 
 ## 3. Подключение MCP сервера к клиенту
 
-После установки сервера на целевую машину добавь в конфиг MCP-клиента:
-
 ```json
 {
   "mcpServers": {
     "arch-linux": {
-      "command": "arch-ops-server"
+      "command": "arch-opsd",
+      "args": ["stdio"]
     }
   }
 }
 ```
 
-**Имя сервера** (`arch-linux`) — это идентификатор машины. Можно подключить несколько:
+Через SSH:
 
 ```json
 {
   "mcpServers": {
-    "rpi5":              { "command": "ssh", "args": ["rpi5.local", "arch-ops-server"] },
-    "vps-arch":          { "url": "http://10.0.0.5:8080/mcp",     "transport": "sse" },
-    "ubuntu-box":        { "url": "http://192.168.1.50:8080/mcp", "transport": "sse" }
-  }
-}
-```
-
-Имена произвольные: `rpi5`, `vps-arch`, `ubuntu-box`, `192.168.1.50` — что угодно. Каждое имя становится префиксом инструментов: `rpi5_get_system_info`, `vps-arch_check_updates_dry_run` и т.д.
-
-> Навыки (`arch-system`, `arch-report`) ждут префикс `arch-linux`. Если переименуешь сервер — сообщи об этом навыкам или переименуй их под свой префикс.
-
-Если сервер на удалённой машине — используй SSE транспорт:
-
-```json
-{
-  "mcpServers": {
-    "arch-linux": {
-      "url": "http://<target-ip>:8080/mcp",
-      "transport": "sse",
-      "headers": {
-        "Authorization": "Bearer <token>"
-      }
+    "rpi5": {
+      "command": "ssh",
+      "args": ["rpi5.local", "arch-opsd", "stdio"]
     }
   }
 }
 ```
-
-> `transport` зависит от MCP-клиента: `sse` (Claude Desktop, Opencode), `streamable-http` (новые клиенты). Smithery подключается без transport — шлёт POST напрямую.
-
-Токен задаётся на сервере через переменную окружения:
-
-```bash
-# На целевой машине, в /etc/systemd/system/arch-ops-server.service.d/override.conf
-# или перед запуском:
-export ARCH_OPS_SERVER_API_KEY="<token>"
-```
-
-Без токена HTTP сервер открыт для всех в сети. В production ставь обязательно.
-
-Имя сервера `arch-linux` важно — skills ссылаются на него как на `arch-linux_TOOL_NAME`.
-
----
 
 ## 4. Проверка
 
 ```bash
-# На целевой машине:
-systemctl status arch-ops-server
-arch-ops-server --help
+arch-opsd stdio --help
+# Или:
+echo '{"id":1,"method":"initialize","params":{}}' | arch-opsd stdio
+# Должен ответить JSON-RPC с capabilities
 ```
 
-Убедись что сервер запущен и слушает (для HTTP: порт 8080).
+## Чек-лист
 
----
-
-## Краткий чек-лист для агента
-
-- [ ] Сервер установлен на **целевую** машину (не на клиенте AI)
-- [ ] `arch-ops-server` работает (`systemctl status arch-ops-server`)
+- [ ] Бинарник `arch-opsd` на целевой машине
 - [ ] Skills скопированы в конфигурацию агента
-- [ ] MCP клиент подключён к серверу (STDIO или HTTP)
+- [ ] MCP клиент подключён (STDIO или SSH)
 - [ ] Имя сервера в конфиге: `arch-linux`

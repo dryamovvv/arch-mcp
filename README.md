@@ -1,278 +1,130 @@
-# Arch Linux MCP Server
+# Arch Linux MCP Server — `arch-opsd`
 
 **Disclaimer:** Unofficial community project, not affiliated with Arch Linux.
 
-A [Model Context Protocol](https://modelcontextprotocol.io/) (MCP) server that bridges AI assistants with the Arch Linux ecosystem. Enables intelligent, safe, and efficient access to the Arch Wiki, AUR, and official repositories for AI-assisted Arch Linux usage on Arch and non-Arch systems.
+A [Model Context Protocol](https://modelcontextprotocol.io/) (MCP) server that bridges AI assistants with the Arch Linux ecosystem. Single static Rust binary — zero runtime dependencies.
 
-Leverage AI to get digestible, structured results that are ready for follow up questions and actions.
+## Key Features
 
-## Sneak Peak into what's available
+- **Single binary (~4.2 MB)** — download and run, no Python/Node/ interpreter needed
+- **Cross-platform** — builds for `aarch64` and `x86_64` (musl static)
+- **48 MCP tools**, 2 prompts, 2 resources (and growing)
+- **STDIO transport** (default) + **HTTP/SSE transport** (optional feature)
 
-<details>
+## Tools
 
-<summary>Using VS Code Sonnet 3.5 for Safe Installation from AUR</summary>
+### Fully Implemented (18 tools)
 
-![VS Code Demo](assets/vscode_notesnook.gif)
+| Tool                        | Description                                     | Platform |
+| --------------------------- | ----------------------------------------------- | -------- |
+| `search_archwiki`           | Search Arch Wiki via MediaWiki API              | Any      |
+| `search_aur`                | Search AUR RPC v5 (sort by relevance/votes/popularity/updated) | Any |
+| `audit_package_security`    | PKGBUILD safety analysis (50+ red flags) + metadata risk scoring | Any |
+| `install_package_secure`    | 5-step secure AUR install with security checks  | Arch     |
+| `get_official_package_info` | Package info via `pacman -Si` or archlinux.org API | Any    |
+| `check_updates_dry_run`     | Check available updates via `checkupdates`      | Arch     |
+| `remove_packages`           | Remove packages with dep/force options          | Arch     |
+| `manage_orphans`            | List/remove orphan packages (dry-run by default)| Arch     |
+| `manage_install_reason`     | List/mark explicit/dependency install reason    | Arch     |
+| `verify_package_integrity`  | Package file verification (-Qk / -Qkk)          | Arch     |
+| `check_database_freshness`  | Pacman DB sync staleness check                  | Arch     |
+| `query_file_ownership`      | 3 modes: file→package, package→files, filename search | Arch |
+| `manage_groups`             | List groups or packages in a group              | Arch     |
+| `get_system_info`           | Kernel, uptime, memory from /proc               | Any      |
+| `analyze_storage`           | Disk usage and pacman cache stats               | Any/Arch |
+| `diagnose_system`           | Failed services and boot logs                   | systemd  |
+| `fetch_news`                | Arch RSS feed (latest/critical/since-update)    | Any      |
+| `optimize_mirrors`          | Mirror status, speed test, suggestions, health  | Any      |
+| `analyze_pacman_conf`       | pacman.conf analysis (full/ignored/parallel)    | Arch     |
+| `analyze_makepkg_conf`      | makepkg.conf CFLAGS, MAKEFLAGS extraction       | Arch     |
 
-</details>
+### Stubs (30 tools — return "not yet implemented")
 
-<details>
-<summary> Asking Claude Code Sonnet 4.5 for fedora equivalent command </summary>
-
-![Equivalent Command Demo](assets/equivalent-commands.gif)
-
-</details>
-
-### Resources (URI-based Access)
-
-Direct access to Arch ecosystem data via custom URI schemes:
-
-#### Documentation & Search
-
-| URI Scheme    | Example                         | Returns                      |
-| ------------- | ------------------------------- | ---------------------------- |
-| `archwiki://` | `archwiki://Installation_guide` | Markdown-formatted Wiki page |
-
-#### Package Information
-
-| URI Scheme         | Example              | Returns                                         |
-| ------------------ | -------------------- | ----------------------------------------------- |
-| `archrepo://`      | `archrepo://vim`     | Official repository package details             |
-| `aur://*/info`     | `aur://yay/info`     | AUR package metadata (votes, maintainer, dates) |
-| `aur://*/pkgbuild` | `aur://yay/pkgbuild` | Raw PKGBUILD with safety analysis               |
-
-#### System Packages (Arch only)
-
-| URI Scheme                    | Example                       | Returns                        |
-| ----------------------------- | ----------------------------- | ------------------------------ |
-| `pacman://installed`          | `pacman://installed`          | System installed packages list |
-| `pacman://orphans`            | `pacman://orphans`            | Orphaned packages              |
-| `pacman://explicit`           | `pacman://explicit`           | Explicitly installed packages  |
-| `pacman://groups`             | `pacman://groups`             | All package groups             |
-| `pacman://group/*`            | `pacman://group/base-devel`   | Packages in specific group     |
-| `pacman://database/freshness` | `pacman://database/freshness` | Package database sync status   |
-
-#### System Monitoring & Logs
-
-| URI Scheme                 | Example                    | Returns                                     |
-| -------------------------- | -------------------------- | ------------------------------------------- |
-| `system://info`            | `system://info`            | System information (kernel, memory, uptime) |
-| `system://disk`            | `system://disk`            | Disk space usage statistics                 |
-| `system://services/failed` | `system://services/failed` | Failed systemd services                     |
-| `system://logs/boot`       | `system://logs/boot`       | Recent boot logs                            |
-| `pacman://log/recent`      | `pacman://log/recent`      | Recent package transactions                 |
-| `pacman://log/failed`      | `pacman://log/failed`      | Failed package transactions                 |
-
-#### News & Updates
-
-| URI Scheme                | Example                   | Returns                                     |
-| ------------------------- | ------------------------- | ------------------------------------------- |
-| `archnews://latest`       | `archnews://latest`       | Latest Arch Linux news                      |
-| `archnews://critical`     | `archnews://critical`     | Critical news requiring manual intervention |
-| `archnews://since-update` | `archnews://since-update` | News since last system update               |
-
-#### Configuration
-
-| URI Scheme         | Example            | Returns                            |
-| ------------------ | ------------------ | ---------------------------------- |
-| `config://pacman`  | `config://pacman`  | Parsed pacman.conf configuration   |
-| `config://makepkg` | `config://makepkg` | Parsed makepkg.conf configuration  |
-| `mirrors://active` | `mirrors://active` | Currently configured mirrors       |
-| `mirrors://health` | `mirrors://health` | Mirror configuration health status |
-
-### Tools (Executable Functions)
-
-#### Package Search & Information
-
-| Tool                        | Description                                        | Platform |
-| --------------------------- | -------------------------------------------------- | -------- |
-| `search_archwiki`           | Query Arch Wiki with ranked results                | Any      |
-| `search_aur`                | Search AUR (relevance/votes/popularity/modified)   | Any      |
-| `get_official_package_info` | Get official package details (hybrid local/remote) | Any      |
-
-#### Package Lifecycle Management
-
-| Tool                     | Description                                                               | Platform  |
-| ------------------------ | ------------------------------------------------------------------------- | --------- |
-| `check_updates_dry_run`  | Check for available updates                                               | Arch only |
-| `install_package_secure` | Install with security checks (blocks malicious packages)                  | Arch only |
-| `remove_packages`        | Remove packages - accepts single package name or list (with deps, forced) | Arch only |
-
-#### Package Analysis & Maintenance
-
-| Tool                       | Description                                                                                                                 | Platform  |
-| -------------------------- | --------------------------------------------------------------------------------------------------------------------------- | --------- |
-| `manage_orphans`           | Manage orphaned packages (2 actions: list orphaned packages, remove orphans). Always runs in dry-run mode first for safety. | Arch only |
-| `verify_package_integrity` | Check file integrity (modified/missing files)                                                                               | Arch only |
-| `manage_install_reason`    | Manage install reasons (3 actions: list explicit packages, mark as explicit/dependency)                                     | Arch only |
-
-#### Package Organization
-
-| Tool                   | Description                                                                                    | Platform  |
-| ---------------------- | ---------------------------------------------------------------------------------------------- | --------- |
-| `query_file_ownership` | Unified file-package ownership queries (3 modes: file→package, package→files, filename search) | Arch only |
-| `list_package_groups`  | List all groups (base, base-devel, etc.)                                                       | Arch only |
-| `list_group_packages`  | Show packages in specific group                                                                | Arch only |
-
-#### System Monitoring & Diagnostics
-
-| Tool                       | Description                          | Platform  |
-| -------------------------- | ------------------------------------ | --------- |
-| `get_system_info`          | System info (kernel, memory, uptime) | Any       |
-| `check_disk_space`         | Disk usage with warnings             | Any       |
-| `get_pacman_cache_stats`   | Package cache size and age           | Arch only |
-| `check_failed_services`    | Find failed systemd services         | systemd   |
-| `get_boot_logs`            | Retrieve journalctl boot logs        | systemd   |
-| `check_database_freshness` | Check package database sync status   | Arch only |
-
-#### BTRFS Monitoring & Management
-
-| Tool                       | Description                                                                                                                                                                                                                                                                          | Platform  |
-| -------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | --------- |
-| `analyze_btrfs`            | Unified BTRFS analysis (11 actions: filesystem_info, filesystem_df, filesystem_usage, subvolumes, subvolume_info, device_stats, device_usage, properties, scrub_status, snapshots, snapper_configs). Requires btrfs-progs and snapper.                                              | Arch only |
-| `manage_btrfs_snapshots`   | Manage snapper snapshots (4 actions: list, configs, create, delete). Supports pre/post snapshots, custom descriptions, and cleanup algorithms. Requires snapper.                                                                                                                     | Arch only |
-| `manage_btrfs_scrub`       | Manage BTRFS scrub operations (3 actions: status, start, cancel). Background scrub support with progress tracking. Requires btrfs-progs.                                                                                                                                             | Arch only |
-
-#### Boot Management (Raspberry Pi)
-
-| Tool            | Description                                                                                                                                                                                    | Platform  |
-| --------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------- |
-| `manage_boot`   | Manage RPi bootloader (3 actions: status, set_boot_order, next_boot). Set boot order via 8 presets or raw hex. Supports one-time boot device override via tryboot. Requires rpi-eeprom.         | Arch only |
-
-#### Transaction History & Logs
-
-| Tool                    | Description                                                                                                                                                                                                                                                                                                                   | Platform  |
-| ----------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------- |
-| `query_package_history` | Unified tool for querying package history from pacman logs (4 query types). Examples: `query_type='all'` shows recent transactions; `query_type='package', package_name='docker'` shows when docker was installed/upgraded; `query_type='failures'` shows failed operations; `query_type='sync'` shows database sync history. | Arch only |
-
-#### News & Safety Checks
-
-| Tool                         | Description                                       | Platform  |
-| ---------------------------- | ------------------------------------------------- | --------- |
-| `get_latest_news`            | Fetch Arch Linux news from RSS                    | Any       |
-| `check_critical_news`        | Find critical news (manual intervention required) | Any       |
-| `get_news_since_last_update` | News posted since last system update              | Arch only |
-
-#### Mirror Management
-
-| Tool               | Description                                                                                                                                                                                                                                                                                                                            | Platform |
-| ------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------- |
-| `optimize_mirrors` | Smart mirror management (4 actions: status, test, suggest, health). Examples: `optimize_mirrors(action='status', auto_test=True)` lists and tests all mirrors; `optimize_mirrors(action='suggest', country='US', limit=5)` suggests top 5 US mirrors; `optimize_mirrors(action='health')` checks for issues and gives recommendations. | Arch/Any |
-
-#### Configuration Management
-
-| Tool                   | Description                                                                                                                                                                                                                                                                                                | Platform  |
-| ---------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------- |
-| `analyze_pacman_conf`  | Parse pacman.conf settings with optional focus. Examples: `focus='full'` (default) returns all settings; `focus='ignored_packages'` returns only ignored packages with warnings for critical ones; `focus='parallel_downloads'` returns only parallel downloads setting with optimization recommendations. | Arch only |
-| `analyze_makepkg_conf` | Parse makepkg.conf settings (CFLAGS, MAKEFLAGS, build configuration)                                                                                                                                                                                                                                       | Arch only |
-
-#### Security Analysis
-
-| Tool                            | Description                                     | Platform |
-| ------------------------------- | ----------------------------------------------- | -------- |
-| `analyze_pkgbuild_safety`       | Comprehensive PKGBUILD analysis (50+ red flags) | Any      |
-| `analyze_package_metadata_risk` | Package trust scoring (votes, maintainer, age)  | Any      |
-
-### Prompts (Guided Workflows)
-
-| Prompt                 | Purpose                       | Workflow                                                                                  |
-| ---------------------- | ----------------------------- | ----------------------------------------------------------------------------------------- |
-| `troubleshoot_issue`   | Diagnose system errors        | Extract keywords → Search Wiki → Context-aware suggestions                                |
-| `audit_aur_package`    | Pre-installation safety audit | Fetch metadata → Analyze PKGBUILD → Security recommendations                              |
-| `analyze_dependencies` | Installation planning         | Check repos → Map dependencies → Suggest install order                                    |
-| `safe_system_update`   | Safe update workflow          | Check critical news → Verify disk space → List updates → Check services → Recommendations |
-
----
+`run_system_health_check`, `query_package_history`, `manage_logs`, `manage_journal_gateway`, `analyze_btrfs`, `manage_btrfs_snapshots`, `manage_btrfs_scrub`, `manage_boot`, `generate_report`, `verify_boot_artifacts`, `verify_service_health`, `verify_homectl_user`, `compare_fstab`, `compare_packages`, `check_security_posture`, `check_rpi_hardware`, `benchmark_quick`, `manage_luks`, `manage_firewall`, `manage_hardware`, `manage_boot_config`, `manage_backup`, `manage_recovery`, `manage_telegram_unlock`
 
 ## Installation
 
-### Prerequisites
-
-- Python 3.11+
-- [uv](https://github.com/astral-sh/uv) (recommended)
-
-### Arch Linux (pacman) — systemd service included
-
-One-liner (downloads prebuilt package from GitHub Releases):
+### Arch Linux (binary from GitHub Releases)
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/dryamovvv/arch-mcp/master/scripts/install.sh | bash
 ```
 
-Or build locally with `makepkg` (recommended for RPi5 aarch64):
+### Build from source
 
 ```bash
 git clone https://github.com/dryamovvv/arch-mcp.git
-cd arch-mcp/packaging/arch
-makepkg -si
+cd arch-mcp
+cargo build --release
+# Binary: target/release/arch-opsd
 ```
 
-The package installs:
-- `/usr/bin/arch-ops-server` — STDIO server
-- `/usr/bin/arch-ops-server-http` — HTTP server on :8080
-- Systemd service enabled and started automatically
-
-### Debian / Ubuntu — systemd service included
-
-One-liner:
+### Cross-compile for RPi5 (aarch64)
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/dryamovvv/arch-mcp/master/scripts/install-deb.sh | bash
+cargo install cross
+cross build --release --target aarch64-unknown-linux-musl
+# Binary: target/aarch64-unknown-linux-musl/release/arch-opsd
 ```
 
-Or build locally:
+## Usage
 
 ```bash
-git clone https://github.com/dryamovvv/arch-mcp.git
-cd arch-mcp/packaging/debian
-sudo bash build-deb.sh
-sudo apt install ./dist/arch-ops-server_*.deb
+# STDIO mode (default for MCP clients)
+arch-opsd stdio
+
+# HTTP mode
+arch-opsd-http        # listens on :8080
 ```
 
-Same installed files as Arch package above.
-
----
-
-## Configuration
-
-Claude / Cursor / Any MCP client that supports STDIO transport
+### Claude / Cursor / MCP clients
 
 ```json
 {
   "mcpServers": {
     "arch-linux": {
-      "command": "uvx",
-      "args": ["arch-ops-server"]
+      "command": "arch-opsd",
+      "args": ["stdio"]
     }
   }
 }
 ```
 
-Opencode:
+### SSH to remote machine
 
 ```json
 {
-  "$schema": "https://opencode.ai/config.json",
-  "mcp": {
-    "arch-linux": {
-      "type": "local",
-      "command": ["uvx", "arch-ops-server"]
+  "mcpServers": {
+    "rpi5": {
+      "command": "ssh",
+      "args": ["rpi5.local", "arch-opsd", "stdio"]
     }
   }
 }
 ```
 
-## Contributing
+## Prompts
 
-Contributions are greatly appreciated. Please feel free to submit a pull request or open an issue.
+| Prompt               | Status     |
+| -------------------- | ---------- |
+| `troubleshoot_issue` | ✅ Partial |
+| `safe_system_update` | ✅ Partial |
+| `audit_aur_package`  | ❌ Stub    |
+| `analyze_dependencies`| ❌ Stub   |
+
+## Resources
+
+| URI Scheme      | Example                      | Status      |
+| --------------- | ---------------------------- | ----------- |
+| `archwiki://`   | `archwiki://Installation_guide` | ✅ Basic |
+| `aur://`        | —                            | ❌ Stub     |
+| `archrepo://`   | —                            | ❌ Stub     |
+| `pacman://`     | —                            | ❌ Stub     |
+| `system://`     | —                            | ❌ Stub     |
+| `archnews://`   | —                            | ❌ Stub     |
+| `mirrors://`    | —                            | ❌ Stub     |
+| `config://`     | —                            | ❌ Stub     |
 
 ## License
 
-This project is dual-licensed under your choice of:
-
-- **[GPL-3.0-only](https://www.gnu.org/licenses/gpl-3.0.en.html)** - For those who prefer strong copyleft protections. See [LICENSE-GPL](LICENSE-GPL)
-- **[MIT License](https://opensource.org/licenses/MIT)** - For broader compatibility and adoption, including use in proprietary software and compatibility with platforms like Docker MCP Catalog. See [LICENSE-MIT](LICENSE-MIT)
-
-You may use this software under the terms of either license. When redistributing or modifying this software, you may choose which license to apply.
-
-By contributing to this project, you agree that your contributions will be licensed under both licenses.
+Dual-licensed: GPL-3.0-only OR MIT.
