@@ -38,7 +38,7 @@ impl ToolHandler for RunSystemHealthCheck {
         summary_parts.push(format!("host={}", hostname));
 
         // 2. Disk space
-        if let Ok(df) = crate::command::run("df", &["-h", "/"]).await {
+        if crate::command::run("df", &["-h", "/"]).await.is_ok() {
             summary_parts.push("disk=checked".into());
         }
 

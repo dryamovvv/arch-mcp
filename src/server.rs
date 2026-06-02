@@ -1,8 +1,18 @@
 use crate::protocol::{JsonRpcRequest, JsonRpcResponse};
 use crate::tools::ToolRegistry;
+#[cfg(feature = "http")]
+use once_cell::sync::OnceCell;
 use serde_json::Value;
 use std::collections::HashMap;
 use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
+
+#[cfg(feature = "http")]
+static REGISTRY: OnceCell<ToolRegistry> = OnceCell::new();
+
+#[cfg(feature = "http")]
+fn registry() -> &'static ToolRegistry {
+    REGISTRY.get_or_init(ToolRegistry::new)
+}
 
 fn parse_request(line: &str) -> Option<JsonRpcRequest> {
     serde_json::from_str(line).ok()
@@ -18,6 +28,88 @@ fn parse_args(params: Value) -> HashMap<String, Value> {
     match params {
         Value::Object(map) => map.into_iter().collect(),
         _ => HashMap::new(),
+    }
+}
+
+#[cfg(feature = "http")]
+pub async fn handle_mcp_request(body: &Value) -> Result<Value, Box<dyn std::error::Error>> {
+    let method = body.get("method").and_then(|v| v.as_str()).unwrap_or("");
+    let id = body.get("id").cloned().unwrap_or(Value::Null);
+    let params = body.get("params").cloned().unwrap_or(Value::Null);
+
+    let _ = registry();
+
+    match method {
+        "initialize" => Ok(serde_json::json!({
+            "jsonrpc": "2.0", "id": id,
+            "result": {
+                "protocolVersion": "2024-11-05",
+                "capabilities": { "tools": {}, "resources": {}, "prompts": {} },
+                "serverInfo": { "name": "arch-opsd", "version": "0.1.0" }
+            }
+        })),
+        "tools/list" => Ok(serde_json::json!({
+            "jsonrpc": "2.0", "id": id,
+            "result": { "tools": registry().list_tools() }
+        })),
+        "tools/call" => {
+            let name = params.get("name").and_then(|v| v.as_str()).unwrap_or("");
+            let args = params.get("arguments").map(|v| parse_args(v.clone())).unwrap_or_default();
+            match registry().call(name, args).await {
+                Ok(result) => Ok(serde_json::json!({
+                    "jsonrpc": "2.0", "id": id,
+                    "result": {
+                        "content": [{ "type": "text", "text": serde_json::to_string_pretty(&result).unwrap_or_default() }]
+                    }
+                })),
+                Err(e) => Ok(serde_json::json!({
+                    "jsonrpc": "2.0", "id": id,
+                    "error": { "code": -32603, "message": format!("{:?}: {}", e.kind, e.message) }
+                })),
+            }
+        }
+        "resources/list" => Ok(serde_json::json!({
+            "jsonrpc": "2.0", "id": id,
+            "result": { "resources": crate::resources::list() }
+        })),
+        "resources/read" => {
+            let uri = params.get("uri").and_then(|v| v.as_str()).unwrap_or("");
+            match crate::resources::read(uri).await {
+                Ok(contents) => Ok(serde_json::json!({
+                    "jsonrpc": "2.0", "id": id,
+                    "result": { "contents": [contents] }
+                })),
+                Err(e) => Ok(serde_json::json!({
+                    "jsonrpc": "2.0", "id": id,
+                    "error": { "code": -32603, "message": format!("{:?}: {}", e.kind, e.message) }
+                })),
+            }
+        }
+        "prompts/list" => Ok(serde_json::json!({
+            "jsonrpc": "2.0", "id": id,
+            "result": { "prompts": crate::prompts::list() }
+        })),
+        "prompts/get" => {
+            let name = params.get("name").and_then(|v| v.as_str()).unwrap_or("");
+            let args = params.get("arguments").map(|v| parse_args(v.clone())).unwrap_or_default();
+            match crate::prompts::get(name, args).await {
+                Ok(msgs) => Ok(serde_json::json!({
+                    "jsonrpc": "2.0", "id": id,
+                    "result": { "messages": msgs }
+                })),
+                Err(e) => Ok(serde_json::json!({
+                    "jsonrpc": "2.0", "id": id,
+                    "error": { "code": -32603, "message": format!("{:?}: {}", e.kind, e.message) }
+                })),
+            }
+        }
+        "shutdown" => Ok(serde_json::json!({
+            "jsonrpc": "2.0", "id": id, "result": Value::Null
+        })),
+        m => Ok(serde_json::json!({
+            "jsonrpc": "2.0", "id": id,
+            "error": { "code": -32601, "message": format!("Method not found: {m}") }
+        })),
     }
 }
 
