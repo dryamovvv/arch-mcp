@@ -65,3 +65,6 @@ htmlcov/
 uv.lock
 assets/
 skills-lock.json
+
+# Rust
+target/
